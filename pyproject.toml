@@ -23,7 +23,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-ui = ["streamlit>=1.36", "plotly>=5.20", "pillow>=13.0.0"]
+# The dashboard and the charts. The lower bounds are the versions they were built and
+# tested with; the tests use AppTest features that older Streamlit releases do not have.
+ui = ["streamlit>=1.67", "plotly>=7.1", "pillow>=13.0.0"]
+# Only for demo/capture_screenshots.py, which also needs a Chrome or Chromium browser.
+demo = ["playwright>=1.40"]
 dev = [
     "pytest>=8", "pytest-cov>=5", "ruff>=0.5", "mypy>=1.10", "pyyaml>=6",
     "markdown-it-py[linkify]>=3",   # parses reports in tests to prove data stays text

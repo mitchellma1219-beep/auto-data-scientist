@@ -1,0 +1,477 @@
+{
+  "source": "churn.csv",
+  "sha256": "5587db71f8c5441f9ba8b0e58cd17467e141367e3f0948366152e65d181f322b",
+  "table": "churn",
+  "params": {
+    "table": null,
+    "question": null,
+    "sql": "SELECT plan, avg(churned) AS churn_rate, count(*) AS customers\nFROM churn\nGROUP BY plan\nORDER BY churn_rate DESC",
+    "target": "churned",
+    "time_col": null,
+    "date_col": null,
+    "value_col": null,
+    "horizon": 6,
+    "seed": 0,
+    "selection_rows": null,
+    "keep": [],
+    "freq": null
+  },
+  "versions": {
+    "duckdb": "2.0.0",
+    "pandas": "3.0.5",
+    "scikit-learn": "1.9.1",
+    "statsmodels": "0.15.0"
+  },
+  "profile": {
+    "table": "churn",
+    "n_rows": 3000,
+    "n_cols": 7,
+    "n_duplicate_rows": 0,
+    "rejected_rows": 0,
+    "columns": [
+      {
+        "name": "customer_id",
+        "dtype": "int64",
+        "kind": "id",
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 3000,
+        "n_invalid": 0,
+        "stats": {},
+        "n_outliers": 0,
+        "n_extreme": 0,
+        "top_values": [],
+        "issues": [],
+        "inconsistent": false
+      },
+      {
+        "name": "tenure_months",
+        "dtype": "int64",
+        "kind": "numeric",
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 59,
+        "n_invalid": 0,
+        "stats": {
+          "min": 1.0,
+          "q1": 16.0,
+          "median": 31.0,
+          "q3": 46.0,
+          "max": 59.0,
+          "mean": 30.365666666666666,
+          "std": 17.21005568152166,
+          "skew": -0.029037471620028135
+        },
+        "n_outliers": 0,
+        "n_extreme": 0,
+        "top_values": [],
+        "issues": [],
+        "inconsistent": false
+      },
+      {
+        "name": "monthly_spend",
+        "dtype": "float64",
+        "kind": "numeric",
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 2637,
+        "n_invalid": 0,
+        "stats": {
+          "min": 0.17,
+          "q1": 28.9,
+          "median": 51.765,
+          "q3": 83.5375,
+          "max": 309.38,
+          "mean": 60.61511333333332,
+          "std": 41.28945448260342,
+          "skew": 1.1665695413861576
+        },
+        "n_outliers": 62,
+        "n_extreme": 4,
+        "top_values": [],
+        "issues": [
+          "4 extreme value(s) beyond 3 x IQR"
+        ],
+        "inconsistent": false
+      },
+      {
+        "name": "plan",
+        "dtype": "str",
+        "kind": "categorical",
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 3,
+        "n_invalid": 0,
+        "stats": {},
+        "n_outliers": 0,
+        "n_extreme": 0,
+        "top_values": [
+          [
+            "team",
+            1012
+          ],
+          [
+            "pro",
+            1004
+          ],
+          [
+            "basic",
+            984
+          ]
+        ],
+        "issues": [],
+        "inconsistent": false
+      },
+      {
+        "name": "support_tickets",
+        "dtype": "int64",
+        "kind": "numeric",
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 9,
+        "n_invalid": 0,
+        "stats": {
+          "min": 0.0,
+          "q1": 1.0,
+          "median": 1.0,
+          "q3": 2.0,
+          "max": 8.0,
+          "mean": 1.5263333333333333,
+          "std": 1.2430426141270194,
+          "skew": 0.8575992968955095
+        },
+        "n_outliers": 208,
+        "n_extreme": 17,
+        "top_values": [],
+        "issues": [
+          "17 extreme value(s) beyond 3 x IQR"
+        ],
+        "inconsistent": false
+      },
+      {
+        "name": "noise",
+        "dtype": "float64",
+        "kind": "numeric",
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 2866,
+        "n_invalid": 0,
+        "stats": {
+          "min": -3.5011,
+          "q1": -0.6456999999999999,
+          "median": 0.0242,
+          "q3": 0.72355,
+          "max": 3.527,
+          "mean": 0.02836963333333333,
+          "std": 1.0028626024673943,
+          "skew": 0.009380678091276955
+        },
+        "n_outliers": 15,
+        "n_extreme": 0,
+        "top_values": [],
+        "issues": [],
+        "inconsistent": false
+      },
+      {
+        "name": "churned",
+        "dtype": "int64",
+        "kind": "boolean",
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 2,
+        "n_invalid": 0,
+        "stats": {},
+        "n_outliers": 0,
+        "n_extreme": 0,
+        "top_values": [
+          [
+            "0",
+            2119
+          ],
+          [
+            "1",
+            881
+          ]
+        ],
+        "issues": [],
+        "inconsistent": false
+      }
+    ],
+    "quality": {
+      "score": 99.97,
+      "completeness": 1.0,
+      "validity": 1.0,
+      "uniqueness": 1.0,
+      "consistency": 1.0,
+      "outliers": 0.9982,
+      "weights": {
+        "completeness": 0.35,
+        "validity": 0.25,
+        "uniqueness": 0.15,
+        "consistency": 0.1,
+        "outliers": 0.15
+      }
+    },
+    "issues": [
+      "monthly_spend: 4 extreme value(s) beyond 3 x IQR",
+      "support_tickets: 17 extreme value(s) beyond 3 x IQR"
+    ]
+  },
+  "kpis": {
+    "metrics": [
+      "monthly_spend",
+      "tenure_months",
+      "support_tickets",
+      "noise"
+    ],
+    "dimensions": [
+      "plan",
+      "churned"
+    ],
+    "dates": [],
+    "ids": [
+      "customer_id"
+    ]
+  },
+  "correlations": [
+    {
+      "a": "monthly_spend",
+      "b": "noise",
+      "r": -0.0370036749502134,
+      "n": 3000,
+      "p_value": 0.04270086554890069
+    },
+    {
+      "a": "support_tickets",
+      "b": "noise",
+      "r": 0.01655295381303361,
+      "n": 3000,
+      "p_value": 0.36476286760028553
+    },
+    {
+      "a": "tenure_months",
+      "b": "support_tickets",
+      "r": 0.012946536998738298,
+      "n": 3000,
+      "p_value": 0.4784205317755479
+    },
+    {
+      "a": "monthly_spend",
+      "b": "support_tickets",
+      "r": 0.00958071547514164,
+      "n": 3000,
+      "p_value": 0.5998955346327614
+    },
+    {
+      "a": "tenure_months",
+      "b": "monthly_spend",
+      "r": -0.007788947710376603,
+      "n": 3000,
+      "p_value": 0.669782223650836
+    },
+    {
+      "a": "tenure_months",
+      "b": "noise",
+      "r": -0.0014370010740081796,
+      "n": 3000,
+      "p_value": 0.9372911072696188
+    }
+  ],
+  "segments": {
+    "plan": [
+      {
+        "plan": "pro",
+        "rows": 1004,
+        "total": 61473.88,
+        "mean": 61.22896414342629,
+        "median": 52.275,
+        "share_of_total": 0.3380558445984923
+      },
+      {
+        "plan": "basic",
+        "rows": 984,
+        "total": 60328.14,
+        "mean": 61.309085365853655,
+        "median": 53.5,
+        "share_of_total": 0.3317552157234274
+      },
+      {
+        "plan": "team",
+        "rows": 1012,
+        "total": 60043.32,
+        "mean": 59.33134387351779,
+        "median": 50.695,
+        "share_of_total": 0.3301889396780803
+      }
+    ],
+    "churned": [
+      {
+        "churned": 0,
+        "rows": 2119,
+        "total": 127728.08,
+        "mean": 60.27752713544125,
+        "median": 51.36,
+        "share_of_total": 0.7023995225833117
+      },
+      {
+        "churned": 1,
+        "rows": 881,
+        "total": 54117.26,
+        "mean": 61.42708286038593,
+        "median": 53.11,
+        "share_of_total": 0.29760047741668827
+      }
+    ]
+  },
+  "query": {
+    "sql": "SELECT plan, avg(churned) AS churn_rate, count(*) AS customers\nFROM churn\nGROUP BY plan\nORDER BY churn_rate DESC",
+    "explanation": "Reads from: churn. Aggregates: AVG(churned), COUNT(*). Groups by: plan. Sorted by: churn_rate DESC.",
+    "columns": [
+      "plan",
+      "churn_rate",
+      "customers"
+    ],
+    "rows": [
+      [
+        "basic",
+        0.37296747967479676,
+        984
+      ],
+      [
+        "pro",
+        0.26294820717131473,
+        1004
+      ],
+      [
+        "team",
+        0.24703557312252963,
+        1012
+      ]
+    ],
+    "truncated": false
+  },
+  "model": {
+    "task": "classification",
+    "target": "churned",
+    "n_rows": 3000,
+    "n_train": 2400,
+    "n_test": 600,
+    "features": [
+      "tenure_months",
+      "monthly_spend",
+      "support_tickets",
+      "noise",
+      "plan"
+    ],
+    "primary_metric": "roc_auc",
+    "higher_is_better": true,
+    "candidates": [
+      {
+        "model": "baseline",
+        "cv_mean": 0.5,
+        "cv_std": 0.0,
+        "fold_scores": [
+          0.5,
+          0.5,
+          0.5,
+          0.5,
+          0.5
+        ]
+      },
+      {
+        "model": "logistic_regression",
+        "cv_mean": 0.7282453607816063,
+        "cv_std": 0.014138110432805247,
+        "fold_scores": [
+          0.7233833343793804,
+          0.7371911546266658,
+          0.7090734115776481,
+          0.7461453168476329,
+          0.7254335864767044
+        ]
+      },
+      {
+        "model": "random_forest",
+        "cv_mean": 0.6735580242264483,
+        "cv_std": 0.014845915518535169,
+        "fold_scores": [
+          0.6679428439925521,
+          0.6904119333040442,
+          0.651969706479215,
+          0.6835498650599384,
+          0.6739157722964916
+        ]
+      },
+      {
+        "model": "gradient_boosting",
+        "cv_mean": 0.6733488148287622,
+        "cv_std": 0.02550439581587552,
+        "fold_scores": [
+          0.6596790727839494,
+          0.6970229502709261,
+          0.6352224941944392,
+          0.685746563735643,
+          0.6890729931588526
+        ]
+      }
+    ],
+    "best_model": "logistic_regression",
+    "improves_on_baseline": true,
+    "folds_better_than_baseline": 5,
+    "n_folds": 5,
+    "test_metrics": {
+      "accuracy": 0.7233333333333334,
+      "balanced_accuracy": 0.5765973413379074,
+      "f1_macro": 0.5730159818917622,
+      "roc_auc": 0.7257986706689536,
+      "average_precision": 0.5226244951888793
+    },
+    "baseline_test_metrics": {
+      "accuracy": 0.7066666666666667,
+      "balanced_accuracy": 0.5,
+      "f1_macro": 0.4140625,
+      "roc_auc": 0.5,
+      "average_precision": 0.29333333333333333
+    },
+    "importance": [
+      [
+        "tenure_months",
+        0.13263561320754713
+      ],
+      [
+        "support_tickets",
+        0.062272191252144025
+      ],
+      [
+        "plan",
+        0.019326222126929672
+      ],
+      [
+        "monthly_spend",
+        -8.844339622642306e-05
+      ],
+      [
+        "noise",
+        -0.0017635077186963998
+      ]
+    ],
+    "leakage": [],
+    "dropped": {
+      "customer_id": "identifier: unique per row, no predictive meaning"
+    },
+    "limitations": [
+      "Feature importance shows what the model relies on, not what causes the outcome.",
+      "Performance is measured on a random hold-out from the same data; it may not carry over to a different period or population."
+    ],
+    "seed": 0,
+    "n_selection": 2400,
+    "n_importance": 600,
+    "class_balance": {
+      "0": 0.7063333333333334,
+      "1": 0.2936666666666667
+    },
+    "lift_top_decile": 2.1022727272727275
+  },
+  "forecast": null,
+  "notes": []
+}

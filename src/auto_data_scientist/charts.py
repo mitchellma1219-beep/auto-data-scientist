@@ -179,6 +179,9 @@ def _figure(p: Palette, title: str, subtitle: str = "", *, height: int = 360,
     top = (72 if subtitle else 48) + (28 if legend else 0)
     fig = go.Figure()
     fig.update_layout(
+        # No inherited template: the look below is complete, so a chart does not change with
+        # Plotly's process-wide default and carries no unused template in its payload.
+        template="none",
         title={"text": heading, "x": 0, "xref": "container", "xanchor": "left", "y": 1,
                "yref": "container", "yanchor": "top", "pad": {"t": 14, "l": 8},
                "font": {"size": 15, "color": p.ink}},
@@ -515,7 +518,7 @@ def model_comparison_figure(report: ModelReport, *, mode: Mode = "light") -> go.
                     key=lambda c: -sign * c.cv_mean)
     ranked += [c for c in report.candidates if c.model == "baseline"]
     roles = {"Selected": (p.accent, [c for c in ranked if c.model == report.best_model]),
-             "Other candidates": (p.accent_soft, [c for c in ranked if c.model not in (
+             "Others": (p.accent_soft, [c for c in ranked if c.model not in (
                  report.best_model, "baseline")]),
              "Baseline": (p.muted, [c for c in ranked if c.model == "baseline"])}
     better = "higher" if report.higher_is_better else "lower"

@@ -315,7 +315,7 @@ def test_model_comparison_shows_every_fold_and_ranks_candidates():
     fig = charts.model_comparison_figure(report)
     selected = trace(fig, "Selected")
     assert list(selected.x) == [0.73] and list(selected.y) == ["Logistic regression (selected)"]
-    others = trace(fig, "Other candidates")
+    others = trace(fig, "Others")
     assert list(others.y) == ["Gradient boosting", "Random forest"]    # best first
     assert list(others.x) == [0.69, 0.67] and list(others.customdata) == [0.03, 0.01]
     assert list(trace(fig, "Baseline").x) == [0.5]
@@ -446,3 +446,18 @@ def test_every_chart_has_one_value_axis_and_a_legend_only_for_several_series(mod
     assert all(fig.layout.showlegend for fig in several)
     assert single[0].data[0].marker.color == p.accent
     assert trace(several[0], "Forecast").line.color == p.second
+
+
+def test_charts_do_not_inherit_the_process_wide_plotly_template(orders):
+    import plotly.io as pio
+
+    before = pio.templates.default
+    try:
+        pio.templates.default = "plotly_dark"
+        fig = charts.distribution_figure(orders["revenue"])
+    finally:
+        pio.templates.default = before
+    spec = fig.to_dict()
+    assert spec["layout"]["paper_bgcolor"] == charts.palette().surface
+    assert spec["layout"]["template"] == {"data": {"scatter": [{"type": "scatter"}]}}
+    assert len(fig.to_json()) < 6000                    # no template shipped with the chart

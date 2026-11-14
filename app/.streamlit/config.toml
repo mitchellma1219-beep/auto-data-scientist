@@ -27,7 +27,7 @@ baseRadius = "0.4rem"
 headingFontSizes = ["1.7rem", "1.25rem", "1.05rem"]
 headingFontWeights = [650, 600, 600]
 metricValueFontSize = "1.7rem"
-paddingTop = "2.5rem"
+paddingTop = "1.5rem"
 showSidebarBorder = true
 
 # The surfaces and inks below are the ones the charts use (auto_data_scientist.charts), so a

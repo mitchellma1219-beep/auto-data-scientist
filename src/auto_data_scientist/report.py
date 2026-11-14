@@ -211,7 +211,8 @@ def render_report(a: Analysis) -> str:
           else ["No issues detected.", ""]),
     ]
     if not a.numeric_summary.empty:
-        parts += ["### Numeric columns", "", md_table(a.numeric_summary), ""]
+        parts += ["### Numeric columns", "",
+                  md_table(a.numeric_summary.rename_axis("column")), ""]
     for dim, seg in a.segments.items():
         parts += [f"### {code_span(a.primary_metric)} by {code_span(dim)}", "", md_table(seg), ""]
     if len(a.correlations):
