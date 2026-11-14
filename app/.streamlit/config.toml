@@ -1,0 +1,49 @@
+# Settings for the dashboard. Streamlit reads this file because it sits next to the script,
+# whatever directory `streamlit run` is started from.
+
+[server]
+# Listen on this computer only: the dashboard has no sign-in and no user accounts.
+address = "localhost"
+# Largest upload in MB. The package has its own limit as well (ADS_MAX_FILE_MB).
+maxUploadSize = 200
+
+[browser]
+# No usage statistics are sent anywhere.
+gatherUsageStats = false
+
+[client]
+toolbarMode = "minimal"
+# Unexpected errors show their type, not a stack trace with local paths.
+showErrorDetails = "type"
+
+[runner]
+# Bare expressions are never rendered implicitly.
+magicEnabled = false
+
+[theme]
+font = "sans-serif"
+baseFontSize = 15
+baseRadius = "0.4rem"
+headingFontSizes = ["1.7rem", "1.25rem", "1.05rem"]
+headingFontWeights = [650, 600, 600]
+metricValueFontSize = "1.7rem"
+paddingTop = "2.5rem"
+showSidebarBorder = true
+
+# The surfaces and inks below are the ones the charts use (auto_data_scientist.charts), so a
+# chart sits on the page without a visible box in either mode.
+[theme.light]
+primaryColor = "#1c5cab"
+backgroundColor = "#fcfcfb"
+secondaryBackgroundColor = "#f1f0ec"
+textColor = "#0b0b0b"
+linkColor = "#1c5cab"
+borderColor = "#dddcd5"
+
+[theme.dark]
+primaryColor = "#3987e5"
+backgroundColor = "#1a1a19"
+secondaryBackgroundColor = "#262624"
+textColor = "#f0efec"
+linkColor = "#86b6ef"
+borderColor = "#383835"

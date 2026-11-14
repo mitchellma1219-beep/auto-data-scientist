@@ -21,7 +21,9 @@ jobs:
       - run: ruff check .
       - run: mypy
       # ADS_REQUIRE_UI makes a missing Plotly or Streamlit a failure instead of a skip.
-      - run: pytest --cov=auto_data_scientist --cov-report=term-missing --cov-fail-under=85
+      # Coverage is measured for the package and for the dashboard script, which the tests
+      # run through Streamlit's AppTest and once as a real headless server.
+      - run: pytest --cov=auto_data_scientist --cov=app --cov-report=term-missing --cov-fail-under=85
         env:
           ADS_REQUIRE_UI: "1"
       - name: Smoke-test the installed CLI and the skill script
