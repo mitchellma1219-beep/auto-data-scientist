@@ -13,7 +13,7 @@ from pathlib import Path
 from auto_data_scientist.errors import AdsError
 from auto_data_scientist.forecasting import forecast_series
 from auto_data_scientist.ingest import load_dataset
-from auto_data_scientist.modeling import train_supervised
+from auto_data_scientist.modeling import SELECTION_ROWS, train_supervised
 from auto_data_scientist.pipeline import analyze, ask, write_artifacts
 from auto_data_scientist.profiling import profile_frame
 from auto_data_scientist.query import QueryResult, run_query
@@ -38,6 +38,8 @@ def _parser() -> argparse.ArgumentParser:
     a = add("ask", "answer a simple aggregate question with the rule-based translator")
     a.add_argument("question")
     a.add_argument("--format", choices=["markdown", "json"], default="markdown")
+    rows_help = ("compare candidate models on a seeded sample of at most this many training "
+                 f"rows (default {SELECTION_ROWS:,}); the selected model is refitted on all rows")
     m = add("model", "train and evaluate a classifier or regressor against a baseline")
     m.add_argument("--target", required=True)
     m.add_argument("--task", choices=["classification", "regression"])
@@ -45,6 +47,7 @@ def _parser() -> argparse.ArgumentParser:
     m.add_argument("--keep", action="append", default=[],
                    help="keep a column the leakage screen would drop")
     m.add_argument("--seed", type=int, default=0)
+    m.add_argument("--selection-rows", type=int, default=SELECTION_ROWS, help=rows_help)
     f = add("forecast", "forecast an aggregated series with backtests")
     f.add_argument("--date-col", required=True)
     f.add_argument("--value-col", required=True)
@@ -61,6 +64,7 @@ def _parser() -> argparse.ArgumentParser:
     r.add_argument("--horizon", type=int, default=6)
     r.add_argument("--problem", help="the business problem, in the user's words")
     r.add_argument("--seed", type=int, default=0)
+    r.add_argument("--selection-rows", type=int, help=rows_help)
     return p
 
 
@@ -84,7 +88,8 @@ def _run(args: argparse.Namespace) -> str:
         a = analyze(args.file, table=args.table, question=args.question, sql=args.sql,
                     target=args.target, time_col=args.time_col, date_col=args.date_col,
                     value_col=args.value_col, horizon=args.horizon,
-                    business_problem=args.problem, seed=args.seed)
+                    business_problem=args.problem, seed=args.seed,
+                    selection_rows=args.selection_rows)
         if args.out:
             paths = write_artifacts(a, args.out, args.file)
             return "\n".join(f"wrote {p}" for p in paths.values())
@@ -113,8 +118,9 @@ def _run(args: argparse.Namespace) -> str:
             return _show_query(res, args.format, args.question, tr.assumptions)
         if args.command == "model":
             return train_supervised(ds.frame(name), args.target, task=args.task,
-                                    time_col=args.time_col, keep=args.keep,
-                                    seed=args.seed).model_dump_json(indent=2)
+                                    time_col=args.time_col, keep=args.keep, seed=args.seed,
+                                    max_selection_rows=args.selection_rows
+                                    ).model_dump_json(indent=2)
         return forecast_series(ds.frame(name), args.date_col, args.value_col, args.horizon,
                                args.freq).model_dump_json(indent=2)
     finally:

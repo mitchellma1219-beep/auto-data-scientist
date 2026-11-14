@@ -5,6 +5,22 @@ hold out 20% (the most recent 20% when a time column is given); cross-validate e
 candidate *pipeline* on the remaining 80% so imputation, scaling and encoding are fitted
 inside each fold; pick the best by the primary metric; score it once on the hold-out next to
 a no-skill baseline; report permutation importance measured on the hold-out.
+
+Large tables: comparing candidates is the expensive step, so when the training rows exceed
+``SELECTION_ROWS`` the cross-validation runs on a seeded sample of them (see
+``sample_rows``). Only the *choice* of model uses the sample. The chosen model is refitted
+on every training row and scored on the whole hold-out, so the reported hold-out metrics
+never come from a reduced test set. Permutation importance, which re-scores the model once
+per column and repeat, uses at most ``IMPORTANCE_ROWS`` hold-out rows. Both samples are
+recorded in the report (``n_selection``, ``n_importance``) and listed in its limitations.
+
+Why 20,000 rows: a candidate only counts as better than the baseline if it wins every fold
+and by a margin of 0.02 AUC. With 20,000 rows each validation fold has 4,000, where the AUC
+of a no-skill model varies by about 0.009 from fold to fold (the Mann-Whitney variance
+``(n1 + n2 + 1) / (12 n1 n2)`` with balanced classes), well inside that margin. A sample
+of 500 rows gives folds of 100 and a spread of about 0.058, which let pure noise pass the
+rule in testing. Samples below ``MIN_SELECTION_ROWS`` (folds of 1,000, spread about 0.018)
+are therefore refused.
 """
 
 from __future__ import annotations
@@ -58,6 +74,11 @@ from auto_data_scientist.profiling import (
 Task = Literal["classification", "regression"]
 MIN_ROWS = 50
 LEAK_THRESHOLD = 0.995
+SELECTION_ROWS = 20_000      # most training rows used to compare candidates
+IMPORTANCE_ROWS = 10_000     # most hold-out rows used for permutation importance
+MIN_SELECTION_ROWS = 5_000   # smallest selection sample that may be requested
+MIN_IMPORTANCE_ROWS = 500    # smallest importance sample that may be requested
+MIN_CLASS_ROWS = 50          # rows of every class kept in a sample (all of them if fewer)
 
 
 class LeakageFinding(BaseModel):
@@ -94,6 +115,8 @@ class ModelReport(BaseModel):
     dropped: dict[str, str]
     limitations: list[str]
     seed: int
+    n_selection: int      # training rows used for cross-validated model selection
+    n_importance: int     # hold-out rows used for permutation importance
     class_balance: dict[str, float] = Field(default_factory=dict)
     lift_top_decile: float | None = None
 
@@ -153,6 +176,30 @@ def detect_leakage(df: pd.DataFrame, target: str, features: list[str],
     return findings
 
 
+def sample_rows(y: pd.Series, n: int, *, stratify: bool, seed: int,
+                min_class_rows: int = MIN_CLASS_ROWS) -> np.ndarray:
+    """Positions of a seeded sample of about ``n`` rows of ``y``, in their original order.
+
+    Without ``stratify`` exactly ``n`` rows are drawn without replacement. With it, every
+    class is sampled in proportion to its share, but never below ``min_class_rows`` rows
+    (or all of its rows when it has fewer), so a rare class cannot vanish from the sample.
+    The result can therefore be slightly larger than ``n``. Positions are returned sorted,
+    which keeps time-ordered data in chronological order.
+    """
+    if n >= len(y):
+        return np.arange(len(y))
+    rng = np.random.default_rng(seed)
+    if not stratify:
+        return np.sort(rng.choice(len(y), size=n, replace=False))
+    labels = y.to_numpy()
+    picked = []
+    for cls in sorted(pd.unique(labels), key=str):
+        members = np.flatnonzero(labels == cls)
+        quota = max(min_class_rows, round(n * len(members) / len(y)))
+        picked.append(rng.choice(members, size=min(len(members), quota), replace=False))
+    return np.sort(np.concatenate(picked))
+
+
 def _candidates(task: Task, seed: int) -> dict[str, object]:
     if task == "classification":
         return {
@@ -184,12 +231,22 @@ def _pipeline(model: object, numeric: list[str], categorical: list[str]) -> Pipe
 
 def train_supervised(
     df: pd.DataFrame, target: str, task: Task | None = None, time_col: str | None = None,
-    keep: list[str] | None = None, seed: int = 0, n_folds: int = 5,
+    keep: list[str] | None = None, seed: int = 0, n_folds: int = 5, *,
+    max_selection_rows: int | None = SELECTION_ROWS,
+    max_importance_rows: int | None = IMPORTANCE_ROWS,
 ) -> ModelReport:
     """Train, compare with a baseline and evaluate. See the module docstring for the protocol.
 
     ``keep`` lists columns that must stay as features even if the leakage screen flags them.
+    ``max_selection_rows`` caps the training rows used to compare candidates and
+    ``max_importance_rows`` the hold-out rows used for permutation importance; ``None``
+    removes a cap. Both samples are drawn with ``seed``.
     """
+    for label, cap, least in (("max_selection_rows", max_selection_rows, MIN_SELECTION_ROWS),
+                              ("max_importance_rows", max_importance_rows, MIN_IMPORTANCE_ROWS)):
+        if cap is not None and cap < least:
+            raise ValueError(f"{label} must be at least {least:,}, got {cap:,}: a smaller "
+                             "sample is too noisy to compare models with")
     if target not in df.columns:
         raise DataError(f"unknown target {target!r}; available columns: {list(df.columns)}")
     if time_col is not None and time_col not in df.columns:
@@ -299,11 +356,24 @@ def train_supervised(
     else:
         metric, scoring, higher = "balanced_accuracy", "balanced_accuracy", True
 
+    X_sel, y_sel = X_tr, y_tr
+    if max_selection_rows is not None and len(X_tr) > max_selection_rows:
+        rows = sample_rows(y_tr, max_selection_rows, stratify=task == "classification",
+                           seed=seed)
+        X_sel, y_sel = X_tr.iloc[rows], y_tr.iloc[rows]
+        limitations.append(
+            f"Candidates were compared by cross-validation on a seeded sample of "
+            f"{len(X_sel):,} of the {len(X_tr):,} training rows (seed {seed}"
+            + (", every class in proportion" if task == "classification" else "")
+            + ") to bound the run time. The selected model was then refitted on all "
+            "training rows and scored on the whole hold-out. Where candidates score close "
+            "together, another sample could select a different one.")
+
     scores: dict[str, np.ndarray] = {}
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         for name, model in _candidates(task, seed).items():
-            raw = cross_val_score(_pipeline(model, numeric, categorical), X_tr, y_tr, cv=cv,
+            raw = cross_val_score(_pipeline(model, numeric, categorical), X_sel, y_sel, cv=cv,
                                   scoring=scoring)
             scores[name] = raw if higher else -raw
     sign = 1 if higher else -1
@@ -319,11 +389,20 @@ def train_supervised(
             "No candidate beat the no-skill baseline consistently across folds: the features "
             "carry little or no usable signal for this target.")
 
+    X_imp, y_imp = X_te, y_te
+    if max_importance_rows is not None and len(X_te) > max_importance_rows:
+        rows = sample_rows(y_te, max_importance_rows, stratify=task == "classification",
+                           seed=seed)
+        X_imp, y_imp = X_te.iloc[rows], y_te.iloc[rows]
+        limitations.append(
+            f"Permutation importance was measured on a seeded sample of {len(X_imp):,} of "
+            f"the {len(X_te):,} hold-out rows (seed {seed}).")
+
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         fitted = _pipeline(_candidates(task, seed)[best], numeric, categorical).fit(X_tr, y_tr)
         base = _pipeline(_candidates(task, seed)["baseline"], numeric, categorical).fit(X_tr, y_tr)
-        imp = permutation_importance(fitted, X_te, y_te, scoring=scoring, n_repeats=5,
+        imp = permutation_importance(fitted, X_imp, y_imp, scoring=scoring, n_repeats=5,
                                      random_state=seed)
     importance = sorted(((f, float(v)) for f, v in zip(features, imp.importances_mean,
                                                        strict=True)), key=lambda t: -t[1])
@@ -379,4 +458,5 @@ def train_supervised(
         best_model=best, improves_on_baseline=improves, folds_better_than_baseline=folds_better,
         n_folds=len(gain), test_metrics=test, baseline_test_metrics=base_test,
         importance=importance, leakage=leakage, dropped=dropped, limitations=limitations,
-        seed=seed, class_balance=balance, lift_top_decile=lift)
+        seed=seed, n_selection=len(X_sel), n_importance=len(X_imp), class_balance=balance,
+        lift_top_decile=lift)

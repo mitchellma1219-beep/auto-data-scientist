@@ -34,6 +34,21 @@ with all preprocessing fitted inside each fold. A model "improves on the baselin
 it wins in every fold and by a margin (0.02 AUC / balanced accuracy, or 2% of RMSE).
 Importance is permutation importance on the hold-out.
 
+On large tables the comparison of candidates is the slow step, so it runs on a seeded
+sample: when there are more than 20,000 training rows, cross-validation uses 20,000 of them
+(`--selection-rows` changes the number; fewer than 5,000 is refused). Classification
+samples keep every class in proportion, with at least 50 rows of each class or all of them.
+Only the choice of model uses the sample: the selected model is refitted on all training
+rows and scored on the whole hold-out. Permutation importance uses at most 10,000 hold-out
+rows. Both samples are drawn with `--seed`, recorded in the output (`n_selection`,
+`n_importance`) and listed under the report's statistical limitations.
+
+The size follows from the margin rule above. With 20,000 rows a validation fold has 4,000,
+where the AUC of a no-skill model varies by about 0.009 between folds, well inside the 0.02
+margin. With 500 rows the spread is about 0.058 and noise can pass the rule, which is why
+small samples are refused. The same caution applies to small tables: with a few hundred
+rows, "improves on the baseline" is weak evidence.
+
 ## Forecasting
 The series is aggregated by period (periods without rows count as zero). Naive, seasonal
 naive and Holt-Winters forecasts are scored by rolling-origin backtests. Holt-Winters is

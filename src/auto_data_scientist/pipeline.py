@@ -16,7 +16,7 @@ from auto_data_scientist.config import Limits
 from auto_data_scientist.errors import AdsError, DataError
 from auto_data_scientist.forecasting import ForecastReport, forecast_series
 from auto_data_scientist.ingest import Dataset, load_dataset
-from auto_data_scientist.modeling import ModelReport, train_supervised
+from auto_data_scientist.modeling import SELECTION_ROWS, ModelReport, train_supervised
 from auto_data_scientist.nl2sql import RuleBasedTranslator, Translation, Translator
 from auto_data_scientist.profiling import (
     TableProfile,
@@ -82,9 +82,14 @@ def analyze(
     sql: str | None = None, target: str | None = None, time_col: str | None = None,
     date_col: str | None = None, value_col: str | None = None, horizon: int = 6,
     business_problem: str | None = None, seed: int = 0, limits: Limits | None = None,
+    selection_rows: int | None = None,
 ) -> Analysis:
     """Run the full analysis. Optional steps that cannot run are recorded in ``notes``;
-    explicitly requested steps (question, sql, target, forecast columns) raise instead."""
+    explicitly requested steps (question, sql, target, forecast columns) raise instead.
+
+    ``selection_rows`` overrides the number of training rows used to compare candidate
+    models on large tables (default ``modeling.SELECTION_ROWS``).
+    """
     ds = load_dataset(path, limits)
     try:
         name = ds.resolve(table)
@@ -102,7 +107,7 @@ def analyze(
             correlations=eda.correlation_pairs(df, profile), business_problem=business_problem,
             params={"table": table, "question": question, "sql": sql, "target": target,
                     "time_col": time_col, "date_col": date_col, "value_col": value_col,
-                    "horizon": horizon, "seed": seed})
+                    "horizon": horizon, "seed": seed, "selection_rows": selection_rows})
         if len(profile.by_kind("numeric")) > 300:
             a.notes.append("correlations: only the first 300 numeric columns were compared")
         metric = value_col or (kpis["metrics"][0] if kpis["metrics"] else None)
@@ -127,7 +132,9 @@ def analyze(
             a.question = question
             a.translation, a.query = ask(ds, question, name)
         if target:
-            a.model = train_supervised(df, target, time_col=time_col, seed=seed)
+            a.model = train_supervised(
+                df, target, time_col=time_col, seed=seed,
+                max_selection_rows=SELECTION_ROWS if selection_rows is None else selection_rows)
         if date_col and value_col:
             a.forecast = forecast_series(df, date_col, value_col, horizon,
                                          _freq_for(parse_dates(df[date_col]).dropna()))
@@ -166,7 +173,8 @@ def write_artifacts(a: Analysis, out_dir: str | Path, source_path: str | Path) -
     args = ["ads", "report", str(source_path), "--out", str(out)]
     for flag, key in (("--table", "table"), ("--sql", "sql"), ("--question", "question"),
                       ("--target", "target"), ("--time-col", "time_col"),
-                      ("--date-col", "date_col"), ("--value-col", "value_col")):
+                      ("--date-col", "date_col"), ("--value-col", "value_col"),
+                      ("--selection-rows", "selection_rows")):
         if a.params.get(key):
             args += [flag, str(a.params[key])]
     args += ["--horizon", str(a.params["horizon"]), "--seed", str(a.params["seed"])]

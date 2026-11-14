@@ -184,11 +184,15 @@ def render_report(a: Analysis) -> str:
         test = pd.DataFrame({"selected model": m.test_metrics,
                              "no-skill baseline": m.baseline_test_metrics})
         imp = pd.DataFrame(m.importance[:10], columns=["feature", "permutation importance"])
+        sampled = (f" Candidates were compared on a seeded sample of {m.n_selection:,} training "
+                   "rows; the selected model was refitted on all of them."
+                   if m.n_selection < m.n_train else "")
         parts += [
             f"### Model for `{m.target}` ({m.task})", "",
             f"{m.n_rows:,} rows; {m.n_train:,} for training with {m.n_folds}-fold "
             f"cross-validation, {m.n_test:,} held out. Selected: **{m.best_model}** (better than "
-            f"the baseline in {m.folds_better_than_baseline} of {m.n_folds} folds). Seed {m.seed}.",
+            f"the baseline in {m.folds_better_than_baseline} of {m.n_folds} folds). Seed {m.seed}."
+            + sampled,
             "", md_table(cand, index=False), "", md_table(test), "", md_table(imp, index=False), ""]
         if m.dropped:
             parts += ["Columns left out:", "", *[f"- `{k}`: {v}" for k, v in m.dropped.items()], ""]
