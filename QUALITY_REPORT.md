@@ -1,23 +1,29 @@
 # Quality report — auto-data-scientist 0.1.0
 
-Every number below was produced by a command run on 2026-11-13; nothing is estimated.
+Every number below was produced by a command run on 2026-11-13 or 2026-11-14; nothing is
+estimated. Where a number comes from an earlier run that was not repeated, the text says so.
 
 - **Local build sandbox**: Python 3.13.18, duckdb 2.0.0, pandas 3.0.5, scikit-learn 1.9.1,
-  statsmodels 0.15.0, sqlglot 30.31.0, numpy 2.5.3, scipy 1.18.1 (Linux, 2 vCPU).
+  statsmodels 0.15.0, sqlglot 30.31.0, numpy 2.5.3, scipy 1.18.1, streamlit 1.67.0,
+  plotly 7.1.0 (Linux, 2 vCPU, shared with other jobs while these numbers were taken).
 - **GitHub Actions**: see "CI" below.
 
 ## Tests executed (local)
 
 | Layer | Tests | Result |
 |---|---|---|
-| Unit (`tests/unit`): profiling, ingestion, SQL guard, translator, EDA | 148 | pass |
-| Integration (`tests/integration`): pipeline, CLI, skill script via subprocess | 15 | pass |
-| Adversarial (`tests/adversarial`) | 12 | pass |
-| Statistical (`tests/statistical`): ground-truth models and forecasts | 19 | pass |
-| **Total** | **194** | **194 pass, 0 fail** (86 s) |
+| Unit (`tests/unit`): profiling, ingestion, SQL guard, translator, EDA, charts, support code | 205 | pass |
+| Integration (`tests/integration`): pipeline, CLI, artefacts, demo, documents, skill script and project-skill link | 31 | pass |
+| Adversarial (`tests/adversarial`): hostile and malformed input, markup injection | 30 | pass |
+| Statistical (`tests/statistical`): ground-truth models and forecasts, selection sample | 34 | pass |
+| Dashboard (`tests/dashboard`): the real Streamlit script through AppTest, a headless server, static checks | 22 | pass |
+| **Total** | **322** | **322 pass, 0 fail** (254 s) |
 
 `ruff check .` (including the flake8-bandit `S` rules): clean. `mypy` strict on `src/`: no
-issues in 15 files. Line coverage (pytest-cov): **97%** (1,458 statements, 44 missed).
+issues in 17 files. Line coverage (pytest-cov) of the package and the dashboard script
+together: **98%** (2,451 statements, 58 missed). The dashboard script alone
+(`app/streamlit_app.py`): 97% (510 statements, 14 missed); the package alone: 98%
+(1,941 statements, 44 missed).
 
 ## Cross-checks against trusted implementations
 
@@ -29,6 +35,17 @@ issues in 15 files. Line coverage (pytest-cov): **97%** (1,458 statements, 44 mi
 - Cohort retention equals a hand-computed matrix; future periods are NaN, not 0.
 - Every input format (CSV, TSV, XLSX, Parquet, SQLite, `.db`, DuckDB) yields the same
   table, row count, column kinds and revenue total.
+- Every chart is checked through the data in its figure: histogram counts equal
+  `numpy.histogram`, segment bars equal the summary table, the correlation heatmap holds each
+  pair once, the retention heatmap equals the matrix with unknown periods left empty, the
+  forecast trace equals the forecast, model charts equal the model report.
+- Dashboard: every number asserted on the page is recomputed with the package or pandas
+  (quality components, segment totals, correlations, monthly series, query results, hold-out
+  AUC, forecast rows). The bytes handed to the zip download button equal
+  `bundle_artifacts()` for the same request, and the page shows the same report.
+- The command in `reproduce.sh` was executed and regenerated a byte-identical `report.md`.
+- The committed demo equals what `demo/make_demo.py` writes (same bytes locally; same files,
+  input hashes and headings in CI, where library versions differ).
 
 ## Statistical verification on synthetic ground truth
 
@@ -42,11 +59,18 @@ issues in 15 files. Line coverage (pytest-cov): **97%** (1,458 statements, 44 mi
 | Monthly series with trend + 12-month season + N(0, 30), 72 months | seasonal model wins; error near 30 | Holt-Winters selected; backtest MAE 27.8 vs 96.3 seasonal naive and 163.1 naive; error on 6 unseen months 25.5 |
 | Random walk, 3 seeds | naive forecast kept | naive selected in all 3; "improves on naive" false |
 | Quality score with 10% + 20% of two columns blanked | completeness = 1 - 1800/48000 | exact match; the other components match their definitions |
+| Selection sample: churn with 8,000 rows, candidates compared on 5,000 of 6,400 training rows | same model, same hold-out result as without the sample | logistic regression in both; hold-out metrics identical; top three importance columns in the same order |
+| Selection sample on pure noise, 2 seeds (n = 8,000, sample 5,000) | "no signal" | `improves_on_baseline` false in both |
+| Fold-to-fold spread of a no-skill AUC, simulated for folds of 100 / 1,000 / 4,000 rows | 0.058 / 0.018 / 0.009 from the Mann-Whitney variance | within 12% of each value (600 simulations per size) |
+
+The first seven rows were first measured on 2026-11-13 and re-measured on 2026-11-14 with
+the current code: every figure is unchanged. The eighth is asserted exactly by a unit test.
+The last three rows are new.
 
 ## Adversarial findings
 
 All of the following are refused or flagged (tests in `tests/adversarial`, `tests/unit/test_sql.py`,
-`tests/unit/test_ingest.py`):
+`tests/unit/test_ingest.py`, `tests/dashboard`):
 
 - 63 unsafe SQL statements (writes, DDL, multi-statement, file and network readers,
   `ATTACH`, `COPY`, `PRAGMA`, `SET`, catalog tables, dynamic SQL, recursive CTEs, cartesian
@@ -63,6 +87,16 @@ All of the following are refused or flagged (tests in `tests/adversarial`, `test
 - `DROP TABLE` payloads in questions, cell values, column names, table names and file paths.
 - Upload names with `../`, absolute paths, backslashes, `~`, NUL bytes and double suffixes.
 - A 301-column table with 20 kB text cells.
+- Markup in data: 12 hostile strings (image and link syntax, HTML, emphasis, code, fences,
+  pipes, bare URLs, e-mail addresses, math, entities, backslashes, stray backticks), used as
+  column names, cell values, a file name and a business problem. Parsed with a CommonMark parser (tables, strike-through and
+  automatic links on), the report contains no link, image or HTML node, its tables keep
+  their shape and its eight sections stay in order. The same check passes on everything the
+  dashboard writes for such a table.
+- In the dashboard: a query that reads a file, a multi-statement query, an empty query, an
+  untranslatable question, random bytes named `.xlsx`, a zero-byte file, a header-only file,
+  an upload over the size limit, a target with one class, a forecast horizon that leaves no
+  room for backtests. Each shows a title, the reason and a next step; none raises.
 
 ### Defects found by testing and fixed
 
@@ -75,60 +109,143 @@ All of the following are refused or flagged (tests in `tests/adversarial`, `test
    repeated records, otherwise they are kept with a warning.
 4. A file of blank lines produced a report about an empty column; it is now refused.
 5. Filter values ending in punctuation were not recognised in questions.
-6. Correlations over a 301-column table took 74.5 s (one scipy call per pair); the
-   vectorised version takes 0.8 s and matches scipy.
+6. Correlations over a 301-column table took 74.5 s (one scipy call per pair; measured on
+   2026-11-13 before the fix, not repeatable now). The vectorised version matches scipy and
+   took 0.09 s for the same 44,850 pairs when timed on 2026-11-14.
 7. Foreign keys such as `customer_id` were treated as metrics.
 8. "top N regions by total revenue" was rejected by the translator.
 9. Pillow 12.3.0 (pulled in by the optional UI extra) had known CVEs; the extra now requires
    13.0.0 or later.
 
-## Performance (`python benchmarks/bench.py`, single run)
+Found while building the dashboard, the selection sample and the demo (2026-11-13/14):
 
-| Rows | Load CSV | Profile | Group-by query | Train + evaluate model |
-|---|---|---|---|---|
-| 10,000 | 0.08 s | 0.04 s | 32 ms | 4.9 s |
-| 100,000 | 0.19 s | 0.16 s | 6 ms | 45.5 s |
-| 1,000,000 | 1.26 s | 1.46 s | 18 ms | not run |
+10. One dataset used from several threads, as dashboard sessions do, failed: in a trial with
+    8 threads, all 240 queries raised and the connection was left in an aborted transaction.
+    Queries now take turns under a lock; the same trial gives 240 results and no error.
+11. An unknown `--date-col` or `--time-col` raised an uncaught `KeyError` in `analyze` and a
+    traceback in the CLI; it is now a `DataError` that lists the available columns.
+12. `reproduce.sh` left out the business problem, so the regenerated report differed from
+    the original. It now carries `--problem`, and `--keep` and `--freq`, which `ads report`
+    did not have. A test runs the command and compares the output.
+13. A newline or a pipe in a dimension name split the heading and the header of that
+    segment's table across two lines in the report.
+14. Text from the data was written into the report as Markdown, so a column name or a cell
+    could plant a link, an image that makes a viewer fetch a URL, HTML or a heading. All
+    data-derived text is now escaped or put in code spans that cannot be closed from inside.
+15. An uploaded CSV was loaded under its generated storage name, so its table was named
+    after a UUID and SQL written in the dashboard could not run on the original file. The
+    table is now named after the name the file is known by.
+16. The dashboard's page icon was a material icon, which the browser fetched from a font
+    CDN: one request to another host per page load. It is now a local file, and the browser
+    check below sees localhost only.
+17. With a 500-row selection sample (seed 1), pure noise passed the "improves on the
+    baseline" rule: folds of 100 rows let a no-skill AUC vary by about 0.058 against a
+    margin of 0.02. Samples under 5,000 rows are now refused, and the reasoning is in the
+    methodology. The same weakness applies to tables with a few hundred rows and is listed
+    under "Not verified / not done".
+18. In the first demo gallery a heading and a chart shared an element id, so Plotly drew the
+    chart into the heading and left a blank box (seen on a screenshot). Ids are now distinct
+    and a test checks that they are unique.
+19. A bar label showed 303,582 as "30.4K" (seen on the first rendering of the charts); the
+    formatter is fixed and unit-tested.
+20. Test helpers left SQLite connections open (`ResourceWarning` under Python 3.13); they
+    are now closed.
 
-Peak resident memory for the whole benchmark run: 611 MB. Modelling time is dominated by the
-random forest and scales poorly; there is no sub-sampling yet. No comparison against other
-tools was run.
+One existing test expectation was corrected, not weakened. `test_hostile_column_names_and_unicode`
+counted report lines that start with the escaped column name and expected one. It now
+expects the two exact lines (the overview row and the segment table's header); the second
+one did not match before only because of defect 13.
+
+## Performance (`python benchmarks/bench.py`, single run, 2026-11-14)
+
+| Rows | Load CSV | Profile | Group-by query | Train + evaluate model | Same, selection sample off |
+|---|---|---|---|---|---|
+| 10,000 | 0.06 s | 0.03 s | 22 ms | 5.4 s | same (8,000 training rows, no sample needed) |
+| 100,000 | 0.18 s | 0.12 s | 5 ms | 10.4 s | 44.3 s |
+| 1,000,000 | 1.21 s | 1.35 s | 11 ms | 18.5 s | not run |
+
+Peak resident memory for the whole benchmark run: 783 MB.
+
+Selection sample: on tables with more than 20,000 training rows, candidates are compared on
+a seeded, class-proportional sample of 20,000 of them; the selected model is refitted on all
+training rows and scored on the whole hold-out.
+
+- 100,000 rows: 44.3 s without the sample, 10.4 s with it, in the same run. Both selected
+  logistic regression and both give hold-out AUC 0.7396 on the same 20,000 hold-out rows.
+- 1,000,000 rows: 18.5 s; logistic regression, hold-out AUC 0.7401 on 200,000 rows,
+  candidates compared on 20,000 of 800,000 training rows. This size was not trained before.
+- The previous report gave 45.5 s for 100,000 rows; that run and this one were on the same
+  machine under different load, so only the two figures from this run are comparable.
+
+The benchmark data selects logistic regression, which refits quickly. The refit of the
+selected model on all training rows is not sampled, and its cost when a random forest wins
+was not measured by the benchmark. No comparison against other tools was run.
 
 ## Security
 
-See [SECURITY.md](SECURITY.md). `bandit -r src`: 0 findings after reviewing and annotating
-nine `B608` lines. `pip-audit`: no known vulnerabilities in the 26 runtime dependencies, nor
-in the 53 packages of the UI extra once Pillow >= 13.0.0 is required. No dedicated secret
-scanner was run; a keyword search of the tree found no credentials.
+See [SECURITY.md](SECURITY.md). `bandit -r src`: 0 findings in 2,867 lines after reviewing
+and annotating ten `B608` lines. `pip-audit` runs in CI on the package installed with the
+UI extra (result below). No dedicated secret scanner was run; a keyword search of the
+tracked files found no credentials.
+
+Browser check (`python demo/capture_screenshots.py`, headless Chrome for Testing
+153.0.8010.12 through Playwright 1.63.0, run twice): the script opened every section of the
+dashboard with the built-in samples and recorded 145 requests each time, all to localhost.
+
+The smoke test starts the dashboard from another directory and confirms that it answers on
+127.0.0.1 and that the port is closed on the machine's outside address. On this machine a
+control listener bound to 0.0.0.0 was reachable from that address, so the check is not
+vacuous here.
 
 ## CI
 
-GitHub Actions run 43565100645 on pull request #1 (clean `pip install -e ".[dev]"`, duckdb 2.0.0,
-pandas 3.1.1, scikit-learn 1.9.1, statsmodels 0.15.0, sqlglot 30.31.0):
+GitHub Actions run 43577671920 on pull request #1, commit 89879a9 (clean
+`pip install -e ".[dev,ui]"`: duckdb 2.0.0, pandas 3.1.1, scikit-learn 1.9.1, statsmodels 0.15.0,
+sqlglot 30.31.0, streamlit 1.67.0, plotly 7.1.0; numpy 2.4.6 and scipy 1.17.1 on Python 3.11,
+numpy 2.5.4 and scipy 1.18.1 on 3.12 and 3.13):
 
 | Job | Result |
 |---|---|
-| test (Python 3.11.18) | ruff clean, mypy clean, 194 passed, coverage 96.84% |
-| test (Python 3.12.16) | ruff clean, mypy clean, 194 passed, coverage 96.84% |
-| test (Python 3.13.18) | ruff clean, mypy clean, 194 passed, coverage 96.84% |
+| test (Python 3.11) | ruff clean, mypy clean, 318 passed, coverage 97.55% |
+| test (Python 3.12) | ruff clean, mypy clean, 318 passed, coverage 97.55% |
+| test (Python 3.13) | ruff clean, mypy clean, 318 passed, coverage 97.55% |
 | smoke test in each job | installed `ads` CLI and the skill script produced a profile, a query result and a report |
-| audit | `bandit -r src` clean; `pip-audit` on the installed package with the UI extra: no known vulnerabilities |
+| audit | `bandit -r src` clean; `pip-audit` on the installed package with the UI extra: "No known vulnerabilities found" |
 
-It passed on the first run. Coverage in CI is 1,458 statements with 46 missed.
+That run predates the four document tests added with this report, hence 318 rather than
+322. Earlier runs on this branch: 43565100645, 43565390442, 43572362581 and 43576847591,
+all passed. The run for the commit that contains this report is recorded in
+PROJECT_STATE.md once it has finished.
 
 ## Not verified / not done
 
-- **No dashboard and no charts** (Streamlit and Plotly are declared as an optional extra but
-  nothing uses them yet).
+- **No independent reviewer pass** (six-role review) has been run.
+- The dashboard was exercised in one browser (headless Chrome, 1440 px wide, light theme;
+  two sections were also looked at in the dark theme). Other browsers, narrow screens,
+  keyboard-only use and screen readers were not tested, and no accessibility audit was run.
+  The AppTest suite does not use a browser; the browser walk-through is a script that was
+  run by hand, not part of CI.
+- The dashboard was not tried with tables larger than the 6,000-row sample plus small
+  uploads. Several sessions at once were tested only at the query layer (6 threads).
+- Linux only. Windows and macOS were not tested; the `.claude/skills` link needs symlink
+  support on Windows.
+- Streamlit before 1.67 and Plotly before 7.1 were not tested, so the `ui` extra requires
+  those versions.
+- The skill has been validated structurally and by running its script, also through the
+  project-skill link, but not loaded in Claude Code.
 - The natural-language translator is rule-based and narrow. No LLM-backed translator is
   included; inside the skill the model writes SQL that the guard checks.
-- The skill has been validated structurally and by running its script, not loaded in Claude Code.
-- No independent reviewer pass (six-role review) has been run.
-- ARCHITECTURE.md, CONTRIBUTING.md and PORTFOLIO.md are not written.
+- On small tables (a few hundred rows) the "improves on the baseline" rule can pass on
+  noise more often than on large ones; its false-alarm rate was not measured.
+- The selection sample was checked on logistic and linear ground truth. A case where
+  candidates score close together, so that the sample changes the choice, was not studied.
+- `pip-audit` covers the runtime and UI dependencies, not the development tools.
 - Excel support is `.xlsx` only. Multi-table joins are available through SQL only.
 - No probability calibration, hyperparameter search or class-imbalance handling.
 
 ## Release recommendation
 
-**Do not publish yet.** The analytical core is tested against ground truth and attacked
-inputs, but the dashboard, independent review and portfolio documentation are open.
+**Do not publish yet.** The dashboard, the charts, the demo and the documentation are now
+in place and tested as described, and the items found on the way are fixed. What still
+stands between this branch and a release is the independent review, the browser and
+accessibility checks listed above, and the owner's decision on the initial commit.
