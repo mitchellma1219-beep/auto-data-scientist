@@ -313,12 +313,12 @@ def test_retention_heatmap_limits_cohorts_and_periods(orders):
 def test_model_comparison_shows_every_fold_and_ranks_candidates():
     report = model_report()
     fig = charts.model_comparison_figure(report)
-    selected = trace(fig, "Selected model")
-    assert list(selected.x) == [0.73] and list(selected.y) == ["Logistic regression"]
+    selected = trace(fig, "Selected")
+    assert list(selected.x) == [0.73] and list(selected.y) == ["Logistic regression (selected)"]
     others = trace(fig, "Other candidates")
     assert list(others.y) == ["Gradient boosting", "Random forest"]    # best first
     assert list(others.x) == [0.69, 0.67] and list(others.customdata) == [0.03, 0.01]
-    assert list(trace(fig, "No-skill baseline").x) == [0.5]
+    assert list(trace(fig, "Baseline").x) == [0.5]
     folds = [x for t in fig.data if t.name.endswith("folds") for x in t.x]
     assert sorted(folds) == sorted(s for c in report.candidates for s in c.fold_scores)
     assert fig.layout.shapes[0].x0 == 0.5                              # baseline reference line
@@ -332,8 +332,8 @@ def test_model_comparison_shows_every_fold_and_ranks_candidates():
 
 def test_model_comparison_for_an_error_metric_ranks_the_lowest_first():
     fig = charts.model_comparison_figure(model_report("regression"))
-    assert list(fig.layout.yaxis.categoryarray) == ["Ridge regression", "Random forest",
-                                                    "No-skill baseline"]
+    assert list(fig.layout.yaxis.categoryarray) == ["Ridge regression (selected)",
+                                                    "Random forest", "No-skill baseline"]
     assert "lower is better" in fig.layout.title.text
     assert [a.text for a in fig.layout.annotations] == ["1.000", "1.200", "3.700"]
 

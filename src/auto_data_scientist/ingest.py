@@ -117,8 +117,8 @@ def _register(ds: Dataset, raw_name: str, frame: pd.DataFrame, taken: set[str]) 
     ds.con.unregister("_ads_staging")
 
 
-def _load_text(ds: Dataset, path: Path, taken: set[str]) -> None:
-    name = _table_name(path.stem, taken)
+def _load_text(ds: Dataset, path: Path, stem: str, taken: set[str]) -> None:
+    name = _table_name(stem, taken)
     try:
         ds.con.execute(
             f"CREATE TABLE {quote_ident(name)} AS "  # noqa: S608  # nosec B608
@@ -171,8 +171,26 @@ def _load_duckdb(ds: Dataset, path: Path, taken: set[str]) -> None:
         raise DataError(f"could not read {path.name} as DuckDB: {exc}") from exc
 
 
-def load_dataset(path: str | Path, limits: Limits | None = None) -> Dataset:
-    """Validate and load a data source. Raises ``DataError`` with a specific reason."""
+def display_name(filename: str, limit: int = 80) -> str:
+    """A client-supplied file name reduced to something safe to show and to write in a report.
+
+    Only the last path segment is kept, and every character except letters, digits, dot,
+    dash, underscore and space is replaced, so the name cannot carry a path or markup.
+    """
+    base = PurePosixPath(filename.replace("\\", "/")).name
+    clean = re.sub(r"[^\w.\- ]", "_", base).strip(" .")
+    return clean[:limit] or "upload"
+
+
+def load_dataset(path: str | Path, limits: Limits | None = None, *,
+                 name: str | None = None) -> Dataset:
+    """Validate and load a data source. Raises ``DataError`` with a specific reason.
+
+    A CSV, TSV or Parquet file becomes one table named after the file. ``name`` is the name
+    the source is known by when that differs from ``path``, for example the original name
+    of an upload stored under a generated one; the table is then named after ``name``, so
+    SQL written against it also works on the original file.
+    """
     limits = limits or Limits.from_env()
     try:
         p = Path(path).expanduser().resolve(strict=True)
@@ -194,12 +212,13 @@ def load_dataset(path: str | Path, limits: Limits | None = None) -> Dataset:
     con.execute(f"SET memory_limit='{int(limits.memory_limit_mb)}MB'")
     ds = Dataset(con=con, source=p, limits=limits)
     taken: set[str] = set()
+    stem = PurePosixPath(display_name(name)).stem if name else p.stem
     try:
         if suffix in TEXT_SUFFIXES:
-            _load_text(ds, p, taken)
+            _load_text(ds, p, stem, taken)
         elif suffix in PARQUET_SUFFIXES:
-            name = _table_name(p.stem, taken)
-            con.execute(f"CREATE TABLE {quote_ident(name)} AS SELECT * FROM read_parquet(?)",  # noqa: S608  # nosec B608
+            table = _table_name(stem, taken)
+            con.execute(f"CREATE TABLE {quote_ident(table)} AS SELECT * FROM read_parquet(?)",  # noqa: S608  # nosec B608
                         [str(p)])
         elif suffix in EXCEL_SUFFIXES:
             try:
@@ -212,15 +231,15 @@ def load_dataset(path: str | Path, limits: Limits | None = None) -> Dataset:
             _load_sqlite(ds, p, taken)
         else:
             _load_duckdb(ds, p, taken)
-        for name in sorted(taken):
-            n = _count(con, name)
+        for table in sorted(taken):
+            n = _count(con, table)
             if n > limits.max_rows:
-                raise DataError(f"table {name!r} has {n:,} rows; limit is {limits.max_rows:,}")
+                raise DataError(f"table {table!r} has {n:,} rows; limit is {limits.max_rows:,}")
             cols = [(str(r[0]), str(r[1])) for r in
-                    con.execute(f"DESCRIBE {quote_ident(name)}").fetchall()]
-            info = ds.tables.get(name) or TableInfo(name, 0, [])
+                    con.execute(f"DESCRIBE {quote_ident(table)}").fetchall()]
+            info = ds.tables.get(table) or TableInfo(table, 0, [])
             info.n_rows, info.columns = n, cols
-            ds.tables[name] = info
+            ds.tables[table] = info
         if not ds.tables:
             raise DataError(f"{p.name} contains no tables")
         # Lock the sandbox: no file or network access and no configuration changes from here on.
@@ -234,17 +253,6 @@ def load_dataset(path: str | Path, limits: Limits | None = None) -> Dataset:
         raise DataError(f"could not load {p.name}: {exc}") from exc
     log.info("loaded %s: %s", p.name, {t.name: t.n_rows for t in ds.tables.values()})
     return ds
-
-
-def display_name(filename: str, limit: int = 80) -> str:
-    """A client-supplied file name reduced to something safe to show and to write in a report.
-
-    Only the last path segment is kept, and every character except letters, digits, dot,
-    dash, underscore and space is replaced, so the name cannot carry a path or markup.
-    """
-    base = PurePosixPath(filename.replace("\\", "/")).name
-    clean = re.sub(r"[^\w.\- ]", "_", base).strip(" .")
-    return clean[:limit] or "upload"
 
 
 def save_upload(data: bytes, filename: str, directory: Path, limits: Limits | None = None) -> Path:

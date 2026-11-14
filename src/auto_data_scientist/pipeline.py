@@ -78,15 +78,20 @@ def analyze(
     date_col: str | None = None, value_col: str | None = None, horizon: int = 6,
     business_problem: str | None = None, seed: int = 0, limits: Limits | None = None,
     selection_rows: int | None = None, source_name: str | None = None,
+    keep: list[str] | None = None, freq: str | None = None,
 ) -> Analysis:
     """Run the full analysis. Optional steps that cannot run are recorded in ``notes``;
     explicitly requested steps (question, sql, target, forecast columns) raise instead.
 
     ``selection_rows`` overrides the number of training rows used to compare candidate
-    models on large tables (default ``modeling.SELECTION_ROWS``). ``source_name`` replaces
-    the file name shown in the report, for uploads that are stored under a generated name.
+    models on large tables (default ``modeling.SELECTION_ROWS``). ``source_name`` is the
+    name an upload is known by when it is stored under a generated one: the report shows it,
+    and a CSV or Parquet table is named after it, so saved SQL runs on the original file.
+    ``keep`` lists columns the model must use even if the leakage screen flags them.
+    ``freq`` (D, W, M, Q or Y) fixes the period of the time series and the forecast; by
+    default it follows the span of the dates.
     """
-    ds = load_dataset(path, limits)
+    ds = load_dataset(path, limits, name=source_name)
     try:
         name = ds.resolve(table)
         df = ds.frame(name)
@@ -107,7 +112,8 @@ def analyze(
             correlations=eda.correlation_pairs(df, profile), business_problem=business_problem,
             params={"table": table, "question": question, "sql": sql, "target": target,
                     "time_col": time_col, "date_col": date_col, "value_col": value_col,
-                    "horizon": horizon, "seed": seed, "selection_rows": selection_rows})
+                    "horizon": horizon, "seed": seed, "selection_rows": selection_rows,
+                    "keep": list(keep or []), "freq": freq})
         if len(profile.by_kind("numeric")) > 300:
             a.notes.append("correlations: only the first 300 numeric columns were compared")
         metric = value_col or (kpis["metrics"][0] if kpis["metrics"] else None)
@@ -121,8 +127,8 @@ def analyze(
         dcol = date_col or (kpis["dates"][0] if kpis["dates"] else None)
         if metric and dcol:
             try:
-                a.trend = eda.time_series_summary(df, dcol, metric,
-                                                  eda.suggest_frequency(df[dcol]))
+                a.trend = eda.time_series_summary(
+                    df, dcol, metric, freq or eda.suggest_frequency(df[dcol]))
                 a.trend_cols = (dcol, metric)
             except AdsError as exc:
                 a.notes.append(f"time series: {exc}")
@@ -133,11 +139,11 @@ def analyze(
             a.translation, a.query = ask(ds, question, name)
         if target:
             a.model = train_supervised(
-                df, target, time_col=time_col, seed=seed,
+                df, target, time_col=time_col, seed=seed, keep=keep,
                 max_selection_rows=SELECTION_ROWS if selection_rows is None else selection_rows)
         if date_col and value_col:
             a.forecast = forecast_series(df, date_col, value_col, horizon,
-                                         eda.suggest_frequency(df[date_col]))
+                                         freq or eda.suggest_frequency(df[date_col]))
         return a
     finally:
         ds.close()
@@ -167,9 +173,12 @@ def artifact_texts(a: Analysis, out_dir: str | Path, source_path: str | Path) ->
     for flag, key in (("--table", "table"), ("--sql", "sql"), ("--question", "question"),
                       ("--target", "target"), ("--time-col", "time_col"),
                       ("--date-col", "date_col"), ("--value-col", "value_col"),
-                      ("--selection-rows", "selection_rows")):
+                      ("--freq", "freq"), ("--selection-rows", "selection_rows")):
         if a.params.get(key):
             args += [flag, str(a.params[key])]
+    kept = a.params.get("keep")
+    for column in kept if isinstance(kept, list) else []:
+        args += ["--keep", str(column)]
     args += ["--horizon", str(a.params["horizon"]), "--seed", str(a.params["seed"])]
     if a.business_problem:
         args += ["--problem", a.business_problem]

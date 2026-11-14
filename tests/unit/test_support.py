@@ -114,3 +114,36 @@ def test_frequency_suggestion_follows_the_span_of_the_dates():
     assert eda.suggest_frequency(pd.Series(["2024-01-01", "not a date", "2025-03-01"])) == "M"
     with pytest.raises(DataError, match="no valid dates"):
         eda.suggest_frequency(pd.Series(["x", None]))
+
+
+@pytest.mark.parametrize("address, local", [
+    ("localhost", True), ("127.0.0.1", True), ("::1", True), ("[::1]", True), (" LOCALHOST ", True),
+    ("127.8.9.10", True), ("0.0.0.0", False), ("::", False), ("192.168.1.5", False),
+    ("example.com", False), ("", False), (None, False),
+])
+def test_only_loopback_addresses_count_as_local(address, local):
+    from auto_data_scientist.config import is_loopback
+
+    assert is_loopback(address) is local
+
+
+def test_tables_are_named_after_the_name_a_file_is_known_by(orders, write):
+    from auto_data_scientist.query import preview_sql
+
+    path = write(orders, name="5d41402abc4b2a76b9719d911017c592")      # a generated name
+    assert load_dataset(path).default_table() == "t_5d41402abc4b2a76b9719d911017c592"
+    for known_as, table in [("Q3 Sales.csv", "q3_sales"), ("../../x/orders.csv", "orders"),
+                            ("2024 (final).csv", "t_2024__final"), ("销售.csv", "销售"),
+                            ("...", "upload")]:
+        ds = load_dataset(path, name=known_as)
+        assert ds.default_table() == table
+        assert preview_sql(table) == f'SELECT * FROM "{table}" LIMIT 20'
+        assert len(run_query(ds, preview_sql(table, 7)).rows) == 7
+        ds.close()
+    assert load_dataset(path, name="").default_table() == load_dataset(path).default_table()
+    parquet = load_dataset(write(orders, "parquet", name="abc"), name="sales.parquet")
+    assert parquet.default_table() == "sales"
+    # Workbooks and databases keep the names of their own sheets and tables.
+    assert load_dataset(write(orders, "xlsx", name="sheet_a"), name="x.xlsx").default_table() == \
+        "sheet_a"
+    assert preview_sql('we"ird') == 'SELECT * FROM "we""ird" LIMIT 20'

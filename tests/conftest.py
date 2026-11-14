@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sqlite3
 import sys
+from contextlib import closing
 from pathlib import Path
 
 import duckdb
@@ -36,7 +37,7 @@ def write(tmp_path):
         elif fmt == "parquet":
             df.to_parquet(path, index=False)
         elif fmt in ("sqlite", "db"):
-            with sqlite3.connect(path) as con:
+            with closing(sqlite3.connect(path)) as con, con:
                 df.to_sql(name, con, index=False)
         elif fmt == "duckdb":
             con = duckdb.connect(str(path))

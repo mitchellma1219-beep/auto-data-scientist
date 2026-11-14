@@ -59,9 +59,13 @@ def _parser() -> argparse.ArgumentParser:
     r.add_argument("--sql")
     r.add_argument("--target")
     r.add_argument("--time-col")
+    r.add_argument("--keep", action="append", default=[],
+                   help="keep a column the leakage screen would drop")
     r.add_argument("--date-col")
     r.add_argument("--value-col")
     r.add_argument("--horizon", type=int, default=6)
+    r.add_argument("--freq", choices=["D", "W", "M", "Q", "Y"],
+                   help="period of the time series and forecast (default: from the date span)")
     r.add_argument("--problem", help="the business problem, in the user's words")
     r.add_argument("--seed", type=int, default=0)
     r.add_argument("--selection-rows", type=int, help=rows_help)
@@ -89,7 +93,7 @@ def _run(args: argparse.Namespace) -> str:
                     target=args.target, time_col=args.time_col, date_col=args.date_col,
                     value_col=args.value_col, horizon=args.horizon,
                     business_problem=args.problem, seed=args.seed,
-                    selection_rows=args.selection_rows)
+                    selection_rows=args.selection_rows, keep=args.keep, freq=args.freq)
         if args.out:
             paths = write_artifacts(a, args.out, args.file)
             return "\n".join(f"wrote {p}" for p in paths.values())

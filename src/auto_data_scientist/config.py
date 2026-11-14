@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ipaddress
 import os
 from dataclasses import dataclass
 
@@ -41,3 +42,19 @@ class Limits:
             sql_max_joins=int(_env("ADS_SQL_MAX_JOINS", d.sql_max_joins)),
             memory_limit_mb=int(_env("ADS_MEMORY_LIMIT_MB", d.memory_limit_mb)),
         )
+
+
+def is_loopback(address: str | None) -> bool:
+    """True if a server bound to ``address`` can only be reached from this computer.
+
+    An empty address means "every interface" for most servers, so it counts as exposed.
+    """
+    if not address:
+        return False
+    host = address.strip().strip("[]").lower()
+    if host == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False

@@ -92,11 +92,14 @@ def hostile(tmp_path_factory):
     })
     path = tmp_path_factory.mktemp("hostile") / "t.parquet"
     df.to_parquet(path, index=False)
-    sql = (f"SELECT {quote_ident(HTML)} AS seg, count(*) AS n FROM t /* ``` {IMAGE} ``` */ "
-           "GROUP BY 1 ORDER BY 2 DESC")
+    # The upload's name is hostile too. It is sanitised to "pixel.png_.parquet", and the table
+    # is named after it.
+    sql = (f"SELECT {quote_ident(HTML)} AS seg, count(*) AS n FROM pixel_png "
+           f"/* ``` {IMAGE} ``` */ GROUP BY 1 ORDER BY 2 DESC")
     analysis = analyze(path, sql=sql, target=URLS, date_col=STYLED, value_col=IMAGE, horizon=3,
                        business_problem=f"Why? {LINK} {IMAGE}",
                        source_name=f"../{IMAGE}.parquet")
+    assert analysis.source == "pixel.png_.parquet" and analysis.table == "pixel_png"
     return path, df, analysis
 
 

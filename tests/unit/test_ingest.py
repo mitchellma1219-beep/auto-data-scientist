@@ -1,4 +1,5 @@
 import sqlite3
+from contextlib import closing
 
 import pandas as pd
 import pytest
@@ -24,7 +25,7 @@ def test_every_format_loads_the_same_table(orders, write, fmt):
 
 def test_multiple_tables_and_default_is_largest(orders, churn, tmp_path):
     path = tmp_path / "shop.sqlite"
-    with sqlite3.connect(path) as con:
+    with closing(sqlite3.connect(path)) as con, con:
         orders.to_sql("Orders 2024", con, index=False)
         churn.to_sql("customers", con, index=False)
     ds = load_dataset(path)
@@ -114,7 +115,7 @@ def test_upload_size_limit(tmp_path):
 def test_hostile_table_names_and_quoted_paths(orders, tmp_path):
     evil = 'x"; DROP TABLE orders; --'
     path = tmp_path / "o'brien.sqlite"
-    with sqlite3.connect(path) as con:
+    with closing(sqlite3.connect(path)) as con, con:
         orders.head(40).to_sql(evil, con, index=False)
         orders.head(10).to_sql("orders", con, index=False)
     ds = load_dataset(path)

@@ -514,11 +514,15 @@ def model_comparison_figure(report: ModelReport, *, mode: Mode = "light") -> go.
     ranked = sorted((c for c in report.candidates if c.model != "baseline"),
                     key=lambda c: -sign * c.cv_mean)
     ranked += [c for c in report.candidates if c.model == "baseline"]
-    roles = {"Selected model": (p.accent, [c for c in ranked if c.model == report.best_model]),
+    roles = {"Selected": (p.accent, [c for c in ranked if c.model == report.best_model]),
              "Other candidates": (p.accent_soft, [c for c in ranked if c.model not in (
                  report.best_model, "baseline")]),
-             "No-skill baseline": (p.muted, [c for c in ranked if c.model == "baseline"])}
+             "Baseline": (p.muted, [c for c in ranked if c.model == "baseline"])}
     better = "higher" if report.higher_is_better else "lower"
+
+    def row(model: str) -> str:   # the selected model is also named, not only coloured
+        return model_label(model) + (" (selected)" if model == report.best_model else "")
+
     text = (f"Each small dot is one of {report.n_folds} cross-validation folds; the large "
             "marker is their mean and the vertical line is the no-skill baseline.")
     if report.n_selection < report.n_train:
@@ -532,11 +536,11 @@ def model_comparison_figure(report: ModelReport, *, mode: Mode = "light") -> go.
             continue
         fig.add_scatter(
             x=[s for c in members for s in c.fold_scores],
-            y=[model_label(c.model) for c in members for _ in c.fold_scores],
+            y=[row(c.model) for c in members for _ in c.fold_scores],
             mode="markers", name=f"{role} folds", showlegend=False, hoverinfo="skip",
             marker={"size": 7, "color": _rgba(colour, 0.45)})
         fig.add_scatter(
-            x=[c.cv_mean for c in members], y=[model_label(c.model) for c in members],
+            x=[c.cv_mean for c in members], y=[row(c.model) for c in members],
             mode="markers", name=role, customdata=[c.cv_std for c in members],
             marker={"size": 12, "color": colour, "line": {"color": p.surface, "width": 2}},
             hovertemplate=f"%{{y}}: mean {metric} %{{x:.3f}} (SD %{{customdata:.3f}} across "
@@ -547,14 +551,14 @@ def model_comparison_figure(report: ModelReport, *, mode: Mode = "light") -> go.
     fmt = ".3f" if report.task == "classification" else _hover_format(
         [c.cv_mean for c in ranked])[1:]
     for c in ranked:
-        fig.add_annotation(x=1, xref="paper", xanchor="right", y=model_label(c.model),
+        fig.add_annotation(x=1, xref="paper", xanchor="right", y=row(c.model),
                            text=format(c.cv_mean, fmt), showarrow=False,
                            font={"size": 13, "color": p.ink})
     fig.update_layout(
         hovermode="closest",
         xaxis=_axis(p, grid=True, title=f"{metric} ({better} is better)", domain=[0, 0.88]),
         yaxis=_axis(p, type="category", autorange="reversed",
-                    categoryarray=[model_label(c.model) for c in ranked],
+                    categoryarray=[row(c.model) for c in ranked],
                     categoryorder="array", tickfont={"size": 13, "color": p.ink}))
     return fig
 

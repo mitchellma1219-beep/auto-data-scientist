@@ -11,7 +11,7 @@ import duckdb
 import pandas as pd
 
 from auto_data_scientist.errors import AdsError, QueryTimeoutError
-from auto_data_scientist.ingest import Dataset
+from auto_data_scientist.ingest import Dataset, quote_ident
 from auto_data_scientist.sql_guard import validate_sql
 
 
@@ -26,6 +26,11 @@ class QueryResult:
 
     def frame(self) -> pd.DataFrame:
         return pd.DataFrame(self.rows, columns=self.columns)
+
+
+def preview_sql(table: str, limit: int = 20) -> str:
+    """A starting query for a table: its first rows, with the name quoted."""
+    return f"SELECT * FROM {quote_ident(table)} LIMIT {int(limit)}"  # noqa: S608  # nosec B608
 
 
 def run_query(ds: Dataset, sql: str) -> QueryResult:
