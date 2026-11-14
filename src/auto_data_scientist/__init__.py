@@ -7,11 +7,12 @@ from auto_data_scientist.errors import (
     QueryTimeoutError,
     TranslationError,
     UnsafeQueryError,
+    explain,
 )
 from auto_data_scientist.forecasting import forecast_series
 from auto_data_scientist.ingest import Dataset, load_dataset
 from auto_data_scientist.modeling import train_supervised
-from auto_data_scientist.pipeline import analyze, ask, write_artifacts
+from auto_data_scientist.pipeline import analyze, ask, bundle_artifacts, write_artifacts
 from auto_data_scientist.profiling import profile_frame
 from auto_data_scientist.query import run_query
 from auto_data_scientist.report import render_report
@@ -29,6 +30,8 @@ __all__ = [
     "UnsafeQueryError",
     "analyze",
     "ask",
+    "bundle_artifacts",
+    "explain",
     "forecast_series",
     "load_dataset",
     "profile_frame",

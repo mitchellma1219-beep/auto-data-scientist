@@ -1,8 +1,6 @@
 """Sub-sampling for model selection: seeded, stated, and never applied to the reported score."""
 
 import json
-import sys
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -18,9 +16,7 @@ from auto_data_scientist.modeling import (
     sample_rows,
     train_supervised,
 )
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "examples"))
-from generate_sample_data import make_churn
+from auto_data_scientist.samples import make_churn
 
 
 @pytest.fixture

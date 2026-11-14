@@ -42,26 +42,32 @@ def run_query(ds: Dataset, sql: str) -> QueryResult:
         timed_out.set()
         ds.con.interrupt()
 
-    timer = threading.Timer(ds.limits.sql_timeout_s, _interrupt)
-    start = time.perf_counter()
-    ds.con.execute("BEGIN TRANSACTION")
-    timer.start()
-    try:
-        cur = ds.con.execute(query.sql)
-        columns = [d[0] for d in cur.description or []]
-        rows = cur.fetchmany(ds.limits.sql_max_rows + 1)
-    except duckdb.InterruptException as exc:
-        raise QueryTimeoutError(
-            f"query exceeded the {ds.limits.sql_timeout_s:g}s time limit and was stopped") from exc
-    except duckdb.Error as exc:
-        if timed_out.is_set():
+    # One connection, one transaction at a time: callers on other threads wait their turn.
+    with ds.lock:
+        timer = threading.Timer(ds.limits.sql_timeout_s, _interrupt)
+        start = time.perf_counter()
+        try:
+            ds.con.execute("BEGIN TRANSACTION")
+        except duckdb.Error as exc:
+            raise AdsError(f"query failed: {str(exc).splitlines()[0]}") from exc
+        timer.start()
+        try:
+            cur = ds.con.execute(query.sql)
+            columns = [d[0] for d in cur.description or []]
+            rows = cur.fetchmany(ds.limits.sql_max_rows + 1)
+        except duckdb.InterruptException as exc:
             raise QueryTimeoutError(
-                f"query exceeded the {ds.limits.sql_timeout_s:g}s time limit") from exc
-        raise AdsError(f"query failed: {str(exc).splitlines()[0]}") from exc
-    finally:
-        timer.cancel()
-        with contextlib.suppress(duckdb.Error):  # an interrupted transaction may be closed
-            ds.con.execute("ROLLBACK")
+                f"query exceeded the {ds.limits.sql_timeout_s:g}s time limit and was "
+                "stopped") from exc
+        except duckdb.Error as exc:
+            if timed_out.is_set():
+                raise QueryTimeoutError(
+                    f"query exceeded the {ds.limits.sql_timeout_s:g}s time limit") from exc
+            raise AdsError(f"query failed: {str(exc).splitlines()[0]}") from exc
+        finally:
+            timer.cancel()
+            with contextlib.suppress(duckdb.Error):  # an interrupted transaction may be closed
+                ds.con.execute("ROLLBACK")
     truncated = len(rows) > ds.limits.sql_max_rows
     return QueryResult(sql=query.sql, explanation=query.explanation, columns=columns,
                        rows=rows[: ds.limits.sql_max_rows], truncated=truncated,

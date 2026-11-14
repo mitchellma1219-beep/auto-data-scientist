@@ -19,6 +19,16 @@ _METRIC_HINT = re.compile(
     r"price|cost|margin|qty|quantity|units|value|arpu|score|rate|duration|count", re.IGNORECASE)
 
 
+def suggest_frequency(dates: pd.Series) -> str:
+    """A sensible aggregation period for a date column: months from six months of data,
+    weeks from four weeks, otherwise days."""
+    valid = parse_dates(dates).dropna()
+    if valid.empty:
+        raise DataError("the column has no valid dates")
+    span = (valid.max() - valid.min()).days
+    return "M" if span >= 180 else "W" if span >= 28 else "D"
+
+
 def numeric_summary(df: pd.DataFrame, profile: TableProfile) -> pd.DataFrame:
     """count, mean, std, min, quartiles, max and skew for every numeric column."""
     cols = profile.by_kind("numeric")

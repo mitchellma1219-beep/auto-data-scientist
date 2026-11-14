@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import shlex
+import zipfile
 from dataclasses import dataclass, field
 from importlib import metadata
 from pathlib import Path
@@ -15,16 +17,14 @@ from auto_data_scientist import eda
 from auto_data_scientist.config import Limits
 from auto_data_scientist.errors import AdsError, DataError
 from auto_data_scientist.forecasting import ForecastReport, forecast_series
-from auto_data_scientist.ingest import Dataset, load_dataset
+from auto_data_scientist.ingest import Dataset, display_name, load_dataset
 from auto_data_scientist.modeling import SELECTION_ROWS, ModelReport, train_supervised
 from auto_data_scientist.nl2sql import RuleBasedTranslator, Translation, Translator
-from auto_data_scientist.profiling import (
-    TableProfile,
-    missing_mask,
-    parse_dates,
-    profile_frame,
-)
+from auto_data_scientist.profiling import TableProfile, missing_mask, profile_frame
 from auto_data_scientist.query import QueryResult, run_query
+
+ARTIFACTS = {"report": "report.md", "data": "analysis.json", "sql": "queries.sql",
+             "reproduce": "reproduce.sh"}
 
 
 @dataclass
@@ -72,23 +72,19 @@ def ask(ds: Dataset, question: str, table: str | None = None,
     return translation, run_query(ds, translation.sql)
 
 
-def _freq_for(dates: pd.Series) -> str:
-    span = (dates.max() - dates.min()).days
-    return "M" if span >= 180 else "W" if span >= 28 else "D"
-
-
 def analyze(
     path: str | Path, *, table: str | None = None, question: str | None = None,
     sql: str | None = None, target: str | None = None, time_col: str | None = None,
     date_col: str | None = None, value_col: str | None = None, horizon: int = 6,
     business_problem: str | None = None, seed: int = 0, limits: Limits | None = None,
-    selection_rows: int | None = None,
+    selection_rows: int | None = None, source_name: str | None = None,
 ) -> Analysis:
     """Run the full analysis. Optional steps that cannot run are recorded in ``notes``;
     explicitly requested steps (question, sql, target, forecast columns) raise instead.
 
     ``selection_rows`` overrides the number of training rows used to compare candidate
-    models on large tables (default ``modeling.SELECTION_ROWS``).
+    models on large tables (default ``modeling.SELECTION_ROWS``). ``source_name`` replaces
+    the file name shown in the report, for uploads that are stored under a generated name.
     """
     ds = load_dataset(path, limits)
     try:
@@ -99,9 +95,13 @@ def analyze(
             raise DataError(f"table {name!r} has no rows; nothing to analyse")
         if all(c.kind == "empty" for c in profile.columns):
             raise DataError(f"table {name!r} has no usable values; every column is blank")
+        for col in (date_col, value_col, time_col):
+            if col is not None and col not in df.columns:
+                raise DataError(f"unknown column {col!r}; available: {list(df.columns)}")
         kpis = eda.identify_kpis(profile)
         a = Analysis(
-            source=ds.source.name, sha256=hashlib.sha256(ds.source.read_bytes()).hexdigest(),
+            source=display_name(source_name) if source_name else ds.source.name,
+            sha256=hashlib.sha256(ds.source.read_bytes()).hexdigest(),
             table=name, profile=profile, kpis=kpis,
             numeric_summary=eda.numeric_summary(df, profile),
             correlations=eda.correlation_pairs(df, profile), business_problem=business_problem,
@@ -121,8 +121,8 @@ def analyze(
         dcol = date_col or (kpis["dates"][0] if kpis["dates"] else None)
         if metric and dcol:
             try:
-                dates = parse_dates(df[dcol]).dropna()
-                a.trend = eda.time_series_summary(df, dcol, metric, _freq_for(dates))
+                a.trend = eda.time_series_summary(df, dcol, metric,
+                                                  eda.suggest_frequency(df[dcol]))
                 a.trend_cols = (dcol, metric)
             except AdsError as exc:
                 a.notes.append(f"time series: {exc}")
@@ -137,21 +137,17 @@ def analyze(
                 max_selection_rows=SELECTION_ROWS if selection_rows is None else selection_rows)
         if date_col and value_col:
             a.forecast = forecast_series(df, date_col, value_col, horizon,
-                                         _freq_for(parse_dates(df[date_col]).dropna()))
+                                         eda.suggest_frequency(df[date_col]))
         return a
     finally:
         ds.close()
 
 
-def write_artifacts(a: Analysis, out_dir: str | Path, source_path: str | Path) -> dict[str, Path]:
-    """Write report.md, analysis.json, queries.sql and reproduce.sh. Returns their paths."""
+def artifact_texts(a: Analysis, out_dir: str | Path, source_path: str | Path) -> dict[str, str]:
+    """The four artefacts as text, keyed by file name: the report, the machine-readable
+    analysis, the SQL that ran and the command that regenerates all of them."""
     from auto_data_scientist.report import render_report
 
-    out = Path(out_dir)
-    out.mkdir(parents=True, exist_ok=True)
-    paths = {k: out / v for k, v in {"report": "report.md", "data": "analysis.json",
-                                     "sql": "queries.sql", "reproduce": "reproduce.sh"}.items()}
-    paths["report"].write_text(render_report(a), encoding="utf-8")
     payload = {
         "source": a.source, "sha256": a.sha256, "table": a.table, "params": a.params,
         "versions": {p: metadata.version(p) for p in
@@ -167,10 +163,7 @@ def write_artifacts(a: Analysis, out_dir: str | Path, source_path: str | Path) -
         "forecast": None if a.forecast is None else a.forecast.model_dump(),
         "notes": a.notes,
     }
-    paths["data"].write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
-    paths["sql"].write_text((a.query.sql + ";\n") if a.query else "-- no query was run\n",
-                            encoding="utf-8")
-    args = ["ads", "report", str(source_path), "--out", str(out)]
+    args = ["ads", "report", str(source_path), "--out", str(out_dir)]
     for flag, key in (("--table", "table"), ("--sql", "sql"), ("--question", "question"),
                       ("--target", "target"), ("--time-col", "time_col"),
                       ("--date-col", "date_col"), ("--value-col", "value_col"),
@@ -178,10 +171,43 @@ def write_artifacts(a: Analysis, out_dir: str | Path, source_path: str | Path) -
         if a.params.get(key):
             args += [flag, str(a.params[key])]
     args += ["--horizon", str(a.params["horizon"]), "--seed", str(a.params["seed"])]
-    paths["reproduce"].write_text(
-        "#!/bin/sh\n# Regenerates this report. Input file sha256: " + a.sha256 + "\n"
-        + " ".join(shlex.quote(x) for x in args) + "\n", encoding="utf-8")
+    if a.business_problem:
+        args += ["--problem", a.business_problem]
+    return {
+        ARTIFACTS["report"]: render_report(a),
+        ARTIFACTS["data"]: json.dumps(payload, indent=2, default=str),
+        ARTIFACTS["sql"]: (a.query.sql + ";\n") if a.query else "-- no query was run\n",
+        ARTIFACTS["reproduce"]: (
+            "#!/bin/sh\n# Regenerates this report. Input file sha256: " + a.sha256 + "\n"
+            + " ".join(shlex.quote(x) for x in args) + "\n"),
+    }
+
+
+def write_artifacts(a: Analysis, out_dir: str | Path, source_path: str | Path) -> dict[str, Path]:
+    """Write report.md, analysis.json, queries.sql and reproduce.sh. Returns their paths."""
+    out = Path(out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    texts = artifact_texts(a, out, source_path)
+    paths = {key: out / name for key, name in ARTIFACTS.items()}
+    for key, path in paths.items():
+        path.write_text(texts[ARTIFACTS[key]], encoding="utf-8")
     return paths
+
+
+def bundle_artifacts(a: Analysis, source_path: str | Path, out_dir: str = "report") -> bytes:
+    """The four artefacts as one zip archive, in a folder named ``out_dir``.
+
+    ``source_path`` is written into reproduce.sh as the input file, so pass the name the
+    person knows the file by. Timestamps are fixed: equal analyses give equal bytes.
+    """
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        for name, text in artifact_texts(a, out_dir, source_path).items():
+            info = zipfile.ZipInfo(f"{out_dir}/{name}", date_time=(1980, 1, 1, 0, 0, 0))
+            info.compress_type = zipfile.ZIP_DEFLATED
+            info.external_attr = (0o755 if name.endswith(".sh") else 0o644) << 16
+            archive.writestr(info, text)
+    return buffer.getvalue()
 
 
 def _installed(package: str) -> bool:

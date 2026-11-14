@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 import re
 import sqlite3
+import threading
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
@@ -55,12 +56,17 @@ class TableInfo:
 
 @dataclass
 class Dataset:
-    """A loaded source: a locked DuckDB connection plus table metadata."""
+    """A loaded source: a locked DuckDB connection plus table metadata.
+
+    The connection is single and stateful, so every use of it holds ``lock``. That makes a
+    dataset safe to share between threads, for example between sessions of the dashboard.
+    """
 
     con: duckdb.DuckDBPyConnection
     source: Path
     limits: Limits
     tables: dict[str, TableInfo] = field(default_factory=dict)
+    lock: threading.RLock = field(default_factory=threading.RLock, repr=False, compare=False)
 
     def default_table(self) -> str:
         if not self.tables:
@@ -77,10 +83,12 @@ class Dataset:
     def frame(self, table: str | None = None) -> pd.DataFrame:
         """Return a table as a pandas DataFrame."""
         name = self.resolve(table)
-        return self.con.execute(f"SELECT * FROM {quote_ident(name)}").df()  # noqa: S608  # nosec B608
+        with self.lock:
+            return self.con.execute(f"SELECT * FROM {quote_ident(name)}").df()  # noqa: S608  # nosec B608
 
     def close(self) -> None:
-        self.con.close()
+        with self.lock:
+            self.con.close()
 
 
 def _count(con: duckdb.DuckDBPyConnection, table: str) -> int:
@@ -226,6 +234,17 @@ def load_dataset(path: str | Path, limits: Limits | None = None) -> Dataset:
         raise DataError(f"could not load {p.name}: {exc}") from exc
     log.info("loaded %s: %s", p.name, {t.name: t.n_rows for t in ds.tables.values()})
     return ds
+
+
+def display_name(filename: str, limit: int = 80) -> str:
+    """A client-supplied file name reduced to something safe to show and to write in a report.
+
+    Only the last path segment is kept, and every character except letters, digits, dot,
+    dash, underscore and space is replaced, so the name cannot carry a path or markup.
+    """
+    base = PurePosixPath(filename.replace("\\", "/")).name
+    clean = re.sub(r"[^\w.\- ]", "_", base).strip(" .")
+    return clean[:limit] or "upload"
 
 
 def save_upload(data: bytes, filename: str, directory: Path, limits: Limits | None = None) -> Path:
