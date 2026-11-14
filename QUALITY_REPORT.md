@@ -103,7 +103,18 @@ scanner was run; a keyword search of the tree found no credentials.
 
 ## CI
 
-Recorded after the first pipeline run; see the pull request.
+GitHub Actions run 43565100645 on pull request #1 (clean `pip install -e ".[dev]"`, duckdb 2.0.0,
+pandas 3.1.1, scikit-learn 1.9.1, statsmodels 0.15.0, sqlglot 30.31.0):
+
+| Job | Result |
+|---|---|
+| test (Python 3.11.18) | ruff clean, mypy clean, 194 passed, coverage 96.84% |
+| test (Python 3.12.16) | ruff clean, mypy clean, 194 passed, coverage 96.84% |
+| test (Python 3.13.18) | ruff clean, mypy clean, 194 passed, coverage 96.84% |
+| smoke test in each job | installed `ads` CLI and the skill script produced a profile, a query result and a report |
+| audit | `bandit -r src` clean; `pip-audit` on the installed package with the UI extra: no known vulnerabilities |
+
+It passed on the first run. Coverage in CI is 1,458 statements with 46 missed.
 
 ## Not verified / not done
 
