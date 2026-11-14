@@ -56,5 +56,5 @@ files = ["src"]
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
-module = ["scipy.*", "pandas.*", "sklearn.*", "statsmodels.*", "duckdb.*", "pyarrow.*"]
+module = ["scipy.*", "pandas.*", "sklearn.*", "statsmodels.*", "duckdb.*", "pyarrow.*", "plotly.*"]
 ignore_missing_imports = true
