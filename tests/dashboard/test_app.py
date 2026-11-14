@@ -538,6 +538,15 @@ def test_workbook_with_two_sheets_offers_a_table_choice(orders, churn):
     go(at, "Data")
     assert metrics(at)["Rows"] == "50" and "churn_sample" in at.caption[0].value
 
+    # Another workbook with other sheet names: the earlier table choice must not linger.
+    second = io.BytesIO()
+    with pd.ExcelWriter(second, engine="openpyxl") as writer:
+        orders.head(30).to_excel(writer, sheet_name="North", index=False)
+        orders.head(80).to_excel(writer, sheet_name="South", index=False)
+    at.file_uploader(key="upload").upload("regions.xlsx", second.getvalue()).run()
+    assert not at.exception
+    assert at.sidebar.selectbox(key="table").value == "south" and metrics(at)["Rows"] == "80"
+
 
 def test_tables_with_little_to_analyse_explain_what_is_missing():
     notes = pd.DataFrame({"note_id": range(1, 61),

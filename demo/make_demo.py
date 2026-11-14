@@ -26,6 +26,7 @@ import tempfile
 from pathlib import Path
 
 import pandas as pd
+import plotly.graph_objects as go
 from plotly.offline import get_plotlyjs
 
 try:
@@ -79,11 +80,11 @@ def table_html(frame: pd.DataFrame, rows: int = 40) -> str:
     return f"<table><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table>{more}"
 
 
-def block(name: str, fig: object, frame: pd.DataFrame) -> str:
+def block(name: str, fig: go.Figure, frame: pd.DataFrame) -> str:
     """One chart with its note and its data table."""
-    plot = fig.to_html(  # type: ignore[attr-defined]
+    plot = fig.to_html(
         full_html=False, include_plotlyjs=False, div_id=f"chart-{name}", config=PLOT_CONFIG,
-        default_height=f"{fig.layout.height}px")  # type: ignore[attr-defined]
+        default_height=f"{fig.layout.height}px")
     note = html.escape(charts.note(fig))
     caption = f"<figcaption>{note}</figcaption>" if note else ""
     return (f"<figure>{plot}{caption}</figure>"
@@ -100,7 +101,7 @@ def page(title: str, lead: str, body: str) -> str:
 
 
 def figures(orders: Analysis, churn: Analysis, orders_frame: pd.DataFrame,
-            ) -> dict[str, tuple[str, object, pd.DataFrame]]:
+            ) -> dict[str, tuple[str, go.Figure, pd.DataFrame]]:
     """Every demo chart: a heading, the figure and the table of numbers it shows."""
     assert orders.trend is not None and orders.forecast is not None and churn.model is not None
     model, forecast = churn.model, orders.forecast

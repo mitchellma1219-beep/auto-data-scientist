@@ -826,6 +826,9 @@ def main() -> None:
         with st.sidebar:
             footer()
         return
+    if st.session_state.get("source") != source.ref:    # another file: forget its table choice
+        st.session_state.pop("table", None)
+        st.session_state["source"] = source.ref
     try:
         ds = open_dataset(source.ref)
         with st.sidebar:
