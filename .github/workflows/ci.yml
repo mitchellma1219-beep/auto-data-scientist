@@ -1,0 +1,40 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: pip install -e ".[dev]"
+      - run: ruff check .
+      - run: mypy
+      - run: pytest --cov=auto_data_scientist --cov-report=term-missing --cov-fail-under=85
+      - name: Smoke-test the installed CLI and the skill script
+        run: |
+          python examples/generate_sample_data.py
+          ads profile examples/orders.csv
+          ads sql examples/orders.csv --query "SELECT region, sum(revenue) AS total FROM orders GROUP BY 1 ORDER BY 2 DESC"
+          python skills/auto-data-scientist/scripts/ads.py report examples/churn.csv --target churned --out /tmp/report
+          test -s /tmp/report/report.md
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[ui]" pip-audit bandit
+      - run: bandit -q -r src
+      - run: pip-audit --skip-editable
