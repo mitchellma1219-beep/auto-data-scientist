@@ -130,7 +130,11 @@ def test_hostile_column_names_and_unicode(tmp_path):
     ds.close()
     text = render_report(analyze(path))
     table_rows = [ln for ln in text.splitlines() if ln.startswith("| a\\|b c |")]
-    assert len(table_rows) == 1 and table_rows[0].count(" | ") == 5
+    # The column's row in the overview, and the header of its segment table. This used to
+    # expect one line: the newline in the name split that header in two, so it did not match.
+    assert table_rows == ["| a\\|b c | categorical | 0.0% | 3 | 0 | 0 |",
+                          "| a\\|b c | rows | total | mean | median | share_of_total |"]
+    assert '### `amount"; DROP TABLE t; --` by `a|b c`' in text
 
 
 def test_wide_table_and_long_text(tmp_path):

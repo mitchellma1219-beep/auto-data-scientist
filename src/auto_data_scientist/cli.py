@@ -17,7 +17,7 @@ from auto_data_scientist.modeling import SELECTION_ROWS, train_supervised
 from auto_data_scientist.pipeline import analyze, ask, write_artifacts
 from auto_data_scientist.profiling import profile_frame
 from auto_data_scientist.query import QueryResult, run_query
-from auto_data_scientist.report import md_table, render_report
+from auto_data_scientist.report import code_block, escape_md, md_table, render_report
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -75,8 +75,8 @@ def _show_query(res: QueryResult, fmt: str, question: str | None = None,
                            "sql": res.sql, "explanation": res.explanation,
                            "columns": res.columns, "rows": [list(r) for r in res.rows],
                            "truncated": res.truncated}, indent=2, default=str)
-    lines = ["```sql", res.sql, "```", "", res.explanation, ""]
-    lines += [f"- Assumption: {x}" for x in assumptions]
+    lines = [*code_block(res.sql, "sql"), "", escape_md(res.explanation), ""]
+    lines += [f"- Assumption: {escape_md(x)}" for x in assumptions]
     lines += ["", md_table(res.frame(), 50, index=False)]
     if res.truncated:
         lines.append("\n_Result truncated at the row limit._")
@@ -102,15 +102,15 @@ def _run(args: argparse.Namespace) -> str:
             if args.format == "json":
                 return prof.model_dump_json(indent=2)
             score = "n/a" if prof.quality.score is None else f"{prof.quality.score:.1f}/100"
-            rows = [f"| {c.name} | {c.kind} | {c.pct_missing:.1%} | {c.n_unique} | "
+            rows = [f"| {escape_md(c.name)} | {c.kind} | {c.pct_missing:.1%} | {c.n_unique} | "
                     f"{c.n_invalid} | {c.n_extreme} |" for c in prof.columns]
             return "\n".join([
-                f"# Profile: {name}", "",
+                f"# Profile: {escape_md(name)}", "",
                 f"{prof.n_rows:,} rows, {prof.n_cols} columns, {prof.n_duplicate_rows:,} "
                 f"duplicate rows. Quality score: {score}", "",
                 "| column | kind | missing | unique | invalid | extreme |",
                 "|---|---|---|---|---|---|",
-                *rows, "", *[f"- {i}" for i in prof.issues]])
+                *rows, "", *[f"- {escape_md(i)}" for i in prof.issues]])
         if args.command == "sql":
             return _show_query(run_query(ds, args.query), args.format)
         if args.command == "ask":

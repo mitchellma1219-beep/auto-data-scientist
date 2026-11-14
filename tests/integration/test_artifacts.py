@@ -68,7 +68,9 @@ def test_uploads_are_reported_under_a_safe_display_name(orders, write):
     path = write(orders, name="3f2a9c")
     a = analyze(path, source_name="../Q3 sales](http://e.invalid).csv")
     assert a.source == "e.invalid_.csv"
-    assert render_report(a).startswith("# Analysis report: e.invalid_.csv")
+    # The name is sanitised first, then escaped like any other text from outside.
+    assert render_report(a).startswith("# Analysis report: e.invalid\\_.csv\n")
+    assert "Source `e.invalid_.csv` (sha256" in render_report(a)
     assert analyze(path).source == "3f2a9c.csv"
 
 
