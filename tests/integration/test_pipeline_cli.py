@@ -121,3 +121,23 @@ def test_skill_frontmatter_is_valid():
     meta = yaml.safe_load(fm)
     assert meta["name"] == folder.name and 0 < len(meta["description"]) <= 1024
     assert len(body.splitlines()) < 500 and (folder / "references" / "methodology.md").exists()
+
+
+def test_project_skill_link_points_at_the_skill_and_runs_from_a_checkout(orders, write, tmp_path):
+    """.claude/skills/<name> is a relative link, so the skill is found as a project skill
+    wherever the repository is cloned, and its script still locates src/ through the link."""
+    import os
+
+    link = ROOT / ".claude" / "skills" / "auto-data-scientist"
+    assert link.is_symlink()
+    assert os.readlink(link) == os.path.join("..", "..", "skills", "auto-data-scientist")
+    assert link.resolve() == (ROOT / "skills" / "auto-data-scientist").resolve()
+    _, fm, _ = (link / "SKILL.md").read_text().split("---", 2)
+    assert yaml.safe_load(fm)["name"] == link.name
+    assert (link / "references" / "methodology.md").is_file()
+    script = link / "scripts" / "ads.py"                      # through the link, not resolved
+    env = {"PATH": "/usr/bin:/bin", "PYTHONPATH": ""}
+    res = subprocess.run([sys.executable, str(script), "profile", str(write(orders))],
+                         capture_output=True, text=True, env=env, cwd=tmp_path, check=False)
+    assert res.returncode == 0, res.stderr
+    assert "6,000 rows, 8 columns" in res.stdout
