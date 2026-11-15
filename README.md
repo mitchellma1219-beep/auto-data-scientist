@@ -27,7 +27,7 @@ and no significance or money claims the data cannot support.
 ## Install
 
 ```bash
-git clone <repo-url> && cd auto-data-scientist
+git clone https://github.com/mitchellma1219-beep/auto-data-scientist.git && cd auto-data-scientist
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev,ui]"      # ".[ui]" is enough to run the dashboard; the CLI needs no extra
 ```
