@@ -1,0 +1,7 @@
+# Generated demo output: keep it out of language statistics and collapse it in diffs.
+demo/charts/** linguist-generated=true
+demo/churn/** linguist-generated=true
+demo/orders/** linguist-generated=true
+# Plotly's own library, written next to the demo pages so they open offline.
+demo/charts/plotly.min.js linguist-vendored=true -diff
+demo/screenshots/*.png binary

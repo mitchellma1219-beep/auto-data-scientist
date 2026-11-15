@@ -1,0 +1,409 @@
+{
+  "source": "orders.csv",
+  "sha256": "d8c03863d91d3a61a6249bd849f13e4f5f48092e7fd99c22f93bbdc3554e1af6",
+  "table": "orders",
+  "params": {
+    "table": null,
+    "question": "top 2 regions by total revenue",
+    "sql": null,
+    "target": null,
+    "time_col": null,
+    "date_col": "order_date",
+    "value_col": "revenue",
+    "horizon": 6,
+    "seed": 0,
+    "selection_rows": null,
+    "keep": [],
+    "freq": null
+  },
+  "versions": {
+    "duckdb": "2.0.0",
+    "pandas": "3.0.5",
+    "scikit-learn": "1.9.1",
+    "statsmodels": "0.15.0"
+  },
+  "profile": {
+    "table": "orders",
+    "n_rows": 6000,
+    "n_cols": 8,
+    "n_duplicate_rows": 0,
+    "rejected_rows": 0,
+    "columns": [
+      {
+        "name": "order_id",
+        "dtype": "int64",
+        "kind": "id",
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 6000,
+        "n_invalid": 0,
+        "stats": {},
+        "n_outliers": 0,
+        "n_extreme": 0,
+        "top_values": [],
+        "issues": [],
+        "inconsistent": false
+      },
+      {
+        "name": "customer_id",
+        "dtype": "int64",
+        "kind": "id",
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 1187,
+        "n_invalid": 0,
+        "stats": {},
+        "n_outliers": 0,
+        "n_extreme": 0,
+        "top_values": [],
+        "issues": [],
+        "inconsistent": false
+      },
+      {
+        "name": "order_date",
+        "dtype": "datetime64[us]",
+        "kind": "datetime",
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 1319,
+        "n_invalid": 0,
+        "stats": {},
+        "n_outliers": 0,
+        "n_extreme": 0,
+        "top_values": [],
+        "issues": [],
+        "inconsistent": false
+      },
+      {
+        "name": "region",
+        "dtype": "str",
+        "kind": "categorical",
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 4,
+        "n_invalid": 0,
+        "stats": {},
+        "n_outliers": 0,
+        "n_extreme": 0,
+        "top_values": [
+          [
+            "West",
+            2439
+          ],
+          [
+            "East",
+            1447
+          ],
+          [
+            "North",
+            1219
+          ],
+          [
+            "South",
+            895
+          ]
+        ],
+        "issues": [],
+        "inconsistent": false
+      },
+      {
+        "name": "channel",
+        "dtype": "str",
+        "kind": "categorical",
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 3,
+        "n_invalid": 0,
+        "stats": {},
+        "n_outliers": 0,
+        "n_extreme": 0,
+        "top_values": [
+          [
+            "web",
+            3622
+          ],
+          [
+            "store",
+            1761
+          ],
+          [
+            "partner",
+            617
+          ]
+        ],
+        "issues": [],
+        "inconsistent": false
+      },
+      {
+        "name": "quantity",
+        "dtype": "int64",
+        "kind": "numeric",
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 5,
+        "n_invalid": 0,
+        "stats": {
+          "min": 1.0,
+          "q1": 2.0,
+          "median": 3.0,
+          "q3": 4.0,
+          "max": 5.0,
+          "mean": 2.971,
+          "std": 1.4180364844548985,
+          "skew": 0.023837612025098744
+        },
+        "n_outliers": 0,
+        "n_extreme": 0,
+        "top_values": [],
+        "issues": [],
+        "inconsistent": false
+      },
+      {
+        "name": "unit_price",
+        "dtype": "float64",
+        "kind": "numeric",
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 3,
+        "n_invalid": 0,
+        "stats": {
+          "min": 19.0,
+          "q1": 19.0,
+          "median": 19.0,
+          "q3": 49.0,
+          "max": 99.0,
+          "mean": 41.49666666666667,
+          "std": 27.897366053584285,
+          "skew": 1.0770139395410407
+        },
+        "n_outliers": 914,
+        "n_extreme": 0,
+        "top_values": [],
+        "issues": [],
+        "inconsistent": false
+      },
+      {
+        "name": "revenue",
+        "dtype": "float64",
+        "kind": "numeric",
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 15,
+        "n_invalid": 0,
+        "stats": {
+          "min": 19.0,
+          "q1": 49.0,
+          "median": 95.0,
+          "q3": 196.0,
+          "max": 495.0,
+          "mean": 123.62733333333334,
+          "std": 109.53942791190197,
+          "skew": 1.6829345438636754
+        },
+        "n_outliers": 182,
+        "n_extreme": 0,
+        "top_values": [],
+        "issues": [],
+        "inconsistent": false
+      }
+    ],
+    "quality": {
+      "score": 100.0,
+      "completeness": 1.0,
+      "validity": 1.0,
+      "uniqueness": 1.0,
+      "consistency": 1.0,
+      "outliers": 1.0,
+      "weights": {
+        "completeness": 0.35,
+        "validity": 0.25,
+        "uniqueness": 0.15,
+        "consistency": 0.1,
+        "outliers": 0.15
+      }
+    },
+    "issues": []
+  },
+  "kpis": {
+    "metrics": [
+      "revenue",
+      "quantity",
+      "unit_price"
+    ],
+    "dimensions": [
+      "region",
+      "channel"
+    ],
+    "dates": [
+      "order_date"
+    ],
+    "ids": [
+      "order_id",
+      "customer_id"
+    ]
+  },
+  "correlations": [
+    {
+      "a": "unit_price",
+      "b": "revenue",
+      "r": 0.7577529312083032,
+      "n": 6000,
+      "p_value": 0.0
+    },
+    {
+      "a": "quantity",
+      "b": "revenue",
+      "r": 0.5490755832235182,
+      "n": 6000,
+      "p_value": 0.0
+    },
+    {
+      "a": "quantity",
+      "b": "unit_price",
+      "r": 0.008614709817501566,
+      "n": 6000,
+      "p_value": 0.5046661705828751
+    }
+  ],
+  "segments": {
+    "region": [
+      {
+        "region": "West",
+        "rows": 2439,
+        "total": 303582.0,
+        "mean": 124.46986469864699,
+        "median": 95.0,
+        "share_of_total": 0.40927033396066675
+      },
+      {
+        "region": "East",
+        "rows": 1447,
+        "total": 181305.0,
+        "mean": 125.29716655148583,
+        "median": 95.0,
+        "share_of_total": 0.2444241025447447
+      },
+      {
+        "region": "North",
+        "rows": 1219,
+        "total": 148880.0,
+        "mean": 122.13289581624282,
+        "median": 95.0,
+        "share_of_total": 0.2007107381862695
+      },
+      {
+        "region": "South",
+        "rows": 895,
+        "total": 107997.0,
+        "mean": 120.66703910614525,
+        "median": 95.0,
+        "share_of_total": 0.14559482530831908
+      }
+    ],
+    "channel": [
+      {
+        "channel": "web",
+        "rows": 3622,
+        "total": 450614.0,
+        "mean": 124.41027056874655,
+        "median": 95.0,
+        "share_of_total": 0.6074897137094817
+      },
+      {
+        "channel": "store",
+        "rows": 1761,
+        "total": 216302.0,
+        "mean": 122.8290743895514,
+        "median": 95.0,
+        "share_of_total": 0.29160487702288057
+      },
+      {
+        "channel": "partner",
+        "rows": 617,
+        "total": 74848.0,
+        "mean": 121.3095623987034,
+        "median": 76.0,
+        "share_of_total": 0.10090540926763769
+      }
+    ]
+  },
+  "query": {
+    "sql": "SELECT \"region\", SUM(\"revenue\") AS \"sum_revenue\" FROM \"orders\" GROUP BY \"region\" ORDER BY \"sum_revenue\" DESC LIMIT 2",
+    "explanation": "Reads from: orders. Aggregates: SUM(\"revenue\"). Groups by: \"region\". Sorted by: \"sum_revenue\" DESC. Returns at most 2 row(s).",
+    "columns": [
+      "region",
+      "sum_revenue"
+    ],
+    "rows": [
+      [
+        "West",
+        303582.0
+      ],
+      [
+        "East",
+        181305.0
+      ]
+    ],
+    "truncated": false
+  },
+  "model": null,
+  "forecast": {
+    "value_col": "revenue",
+    "freq": "M",
+    "n_periods": 48,
+    "horizon": 6,
+    "seasonal_period": 12,
+    "backtest_mae": {
+      "naive": 2411.866666666667,
+      "seasonal_naive": 2241.266666666667,
+      "holt_winters": 1749.2703537307975
+    },
+    "n_backtests": 5,
+    "best_model": "seasonal_naive",
+    "improves_on_naive": false,
+    "forecast": [
+      [
+        "2025-01-01",
+        14022.0,
+        10120.0,
+        17924.0
+      ],
+      [
+        "2025-02-01",
+        20321.0,
+        16419.0,
+        24223.0
+      ],
+      [
+        "2025-03-01",
+        17492.0,
+        13590.0,
+        21394.0
+      ],
+      [
+        "2025-04-01",
+        19057.0,
+        15155.0,
+        22959.0
+      ],
+      [
+        "2025-05-01",
+        17566.0,
+        13664.0,
+        21468.0
+      ],
+      [
+        "2025-06-01",
+        18008.0,
+        14106.0,
+        21910.0
+      ]
+    ],
+    "interval_note": "Range = forecast +/- the 80th percentile of absolute backtest errors.",
+    "limitations": [
+      "The statistical model did not beat the naive baselines reliably; the simplest adequate forecast is reported.",
+      "Forecasts assume the historical pattern continues; promotions, price changes and shocks are not modelled."
+    ]
+  },
+  "notes": []
+}
