@@ -4,7 +4,8 @@ Turn a raw business dataset into a reproducible analysis and an executive report
 statistics kept honest: a baseline next to every model, leakage screening before training,
 and no significance or money claims the data cannot support.
 
-> Status: v0.1.0, not released. Engine, CLI, Agent Skill and dashboard are built and tested;
+> Status: v0.1.0, merged to `main` and public; not published to PyPI. Engine, CLI, Agent Skill
+> and dashboard are built and tested;
 > an independent review is still open. See [QUALITY_REPORT.md](QUALITY_REPORT.md) for what
 > has and has not been verified.
 
